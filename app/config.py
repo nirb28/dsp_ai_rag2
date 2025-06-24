@@ -19,12 +19,14 @@ class EmbeddingModel(str, Enum):
     SENTENCE_TRANSFORMERS_ALL_MINILM = "sentence-transformers/all-MiniLM-L6-v2"
     SENTENCE_TRANSFORMERS_ALL_MPNET = "sentence-transformers/all-mpnet-base-v2"
     OPENAI_TEXT_EMBEDDING_ADA_002 = "text-embedding-ada-002"
+    TRITON_EMBEDDING = "triton-embedding"  # Add Triton embedding model
 
 class GenerationModel(str, Enum):
     GROQ_LLAMA3_8B = "llama3-8b-8192"
     GROQ_LLAMA3_70B = "llama3-70b-8192"
     GROQ_MIXTRAL_8X7B = "mixtral-8x7b-32768"
     GROQ_GEMMA_7B = "gemma-7b-it"
+    TRITON_LLAMA_3_70B = "meta-llama Llama-3.1-70B-Instruct"  # Add Triton LLM model
 
 class ChunkingConfig(BaseModel):
     strategy: ChunkingStrategy = ChunkingStrategy.RECURSIVE_TEXT
@@ -62,6 +64,10 @@ class Settings:
     STORAGE_PATH: str = os.getenv("STORAGE_PATH", "./storage")
     MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
     ALLOWED_FILE_TYPES: list[str] = ["pdf", "txt", "docx", "pptx"]
+    # Triton server settings
+    TRITON_SERVER_URL: str = os.getenv("TRITON_SERVER_URL", "http://localhost:8000")
+    TRITON_EMBEDDING_MODEL: str = os.getenv("TRITON_EMBEDDING_MODEL", "embedding-model")
+    TRITON_LLM_MODEL: str = os.getenv("TRITON_LLM_MODEL", "meta-llama Llama-3.1-70B-Instruct")
 
 settings = Settings()
 

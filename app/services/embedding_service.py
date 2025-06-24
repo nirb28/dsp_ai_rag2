@@ -1,6 +1,8 @@
 import logging
 from typing import List
 import numpy as np
+import json
+import requests
 from sentence_transformers import SentenceTransformer
 import openai
 
@@ -26,6 +28,11 @@ class EmbeddingService:
                     raise ValueError("OpenAI API key not provided")
                 openai.api_key = settings.OPENAI_API_KEY
                 logger.info("Initialized OpenAI embedding model")
+            elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
+                # Triton doesn't need initialization, just verify the server URL is set
+                if not settings.TRITON_SERVER_URL:
+                    raise ValueError("Triton server URL not provided")
+                logger.info(f"Using Triton embedding model at {settings.TRITON_SERVER_URL}")
             else:
                 raise ValueError(f"Unsupported embedding model: {self.config.model}")
         except Exception as e:
@@ -39,6 +46,8 @@ class EmbeddingService:
                 return self._embed_with_sentence_transformers(texts)
             elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
                 return self._embed_with_openai(texts)
+            elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
+                return self._embed_with_triton(texts)
             else:
                 raise ValueError(f"Unsupported embedding model: {self.config.model}")
         except Exception as e:
@@ -79,6 +88,41 @@ class EmbeddingService:
         embeddings = self.embed_texts([query])
         return embeddings[0]
 
+    def _embed_with_triton(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings using Triton Inference Server."""
+        embeddings = []
+        batch_size = self.config.batch_size
+        endpoint = f"{settings.TRITON_SERVER_URL}/v2/models/{settings.TRITON_EMBEDDING_MODEL}/infer"
+        
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            
+            # Format the request according to Triton's API
+            payload = {
+                "inputs": [{
+                    "name": "text_input",
+                    "shape": [len(batch)],
+                    "datatype": "BYTES",
+                    "data": batch
+                }]
+            }
+            
+            response = requests.post(
+                url=endpoint,
+                data=json.dumps(payload),
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Triton server returned error: {response.status_code}, {response.text}")
+                
+            result = response.json()
+            # Parse the response - exact format may depend on how the model is configured in Triton
+            batch_embeddings = result["outputs"][0]["data"]
+            embeddings.extend(batch_embeddings)
+        
+        return embeddings
+
     def get_dimension(self) -> int:
         """Get the dimension of embeddings produced by this model."""
         if self.config.model == EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM:
@@ -87,6 +131,9 @@ class EmbeddingService:
             return 768
         elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
             return 1536
+        elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
+            # This might need to be configured based on your Triton model
+            return 1024  # Adjust based on your model's dimension
         else:
             # Default fallback - generate a test embedding to get dimension
             test_embedding = self.embed_texts(["test"])
