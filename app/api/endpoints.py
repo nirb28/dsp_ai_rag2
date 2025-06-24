@@ -27,13 +27,10 @@ if not hasattr(FAISSVectorStore, 'get_all_documents'):
         Returns:
             List of documents
         """
-        if not self.docsearch or self.docsearch.docstore._dict is None:
+        if not hasattr(self, 'documents') or not self.documents:
             return []
             
-        documents = []
-        for doc_id, doc in list(self.docsearch.docstore._dict.items())[:limit]:
-            documents.append(doc)
-        return documents
+        return self.documents[:limit]
         
     FAISSVectorStore.get_all_documents = get_all_documents
 
@@ -291,9 +288,23 @@ async def debug_collection(collection_name: str, limit: int = 10, show_vectors: 
         # Get sample chunks
         chunks = vector_store.get_all_documents(limit=limit)
         
+        # Try to access index vectors directly if show_vectors is True
+        vectors = None
+        vector_dimensions = 0
+        if show_vectors and hasattr(vector_store, 'index') and vector_store.index is not None:
+            try:
+                # Get the first few vectors directly from FAISS
+                limited_index = min(limit, vector_store.index.ntotal)
+                if limited_index > 0:
+                    vectors = [vector_store.index.reconstruct(i).tolist() for i in range(limited_index)]
+                    if vectors and len(vectors) > 0:
+                        vector_dimensions = len(vectors[0])
+            except Exception as e:
+                logger.warning(f"Could not extract vectors from FAISS index: {e}")
+        
         # Prepare response
         chunks_data = []
-        for chunk in chunks:
+        for i, chunk in enumerate(chunks):
             chunk_data = {
                 "text": chunk.page_content,
                 "metadata": chunk.metadata,
@@ -301,12 +312,13 @@ async def debug_collection(collection_name: str, limit: int = 10, show_vectors: 
                 "text_preview": chunk.page_content[:100] + '...' if len(chunk.page_content) > 100 else chunk.page_content
             }
             
-            if show_vectors and hasattr(chunk, 'embedding'):
+            # Add embedding from our direct extraction if available
+            if show_vectors and vectors and i < len(vectors):
                 chunk_data["embedding"] = {
-                    "dimensions": len(chunk.embedding),
-                    "preview": chunk.embedding[:5].tolist() if hasattr(chunk.embedding, 'tolist') else chunk.embedding[:5]
+                    "dimensions": vector_dimensions,
+                    "preview": vectors[i][:5] if vector_dimensions > 5 else vectors[i]
                 }
-                
+            
             chunks_data.append(chunk_data)
         
         return {
@@ -314,6 +326,8 @@ async def debug_collection(collection_name: str, limit: int = 10, show_vectors: 
             "chunks": chunks_data,
             "total_count": document_count,
             "shown_count": len(chunks_data),
+            "has_embeddings": vectors is not None,
+            "embedding_dimensions": vector_dimensions,
             "config": rag_service.configurations[collection_name].dict()
         }
         
