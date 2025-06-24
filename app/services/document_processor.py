@@ -1,0 +1,159 @@
+import os
+import uuid
+from typing import List, Dict, Any
+from pathlib import Path
+import logging
+
+from langchain.text_splitter import (
+    RecursiveCharacterTextSplitter,
+    CharacterTextSplitter,
+    SentenceTransformersTokenTextSplitter
+)
+from langchain.docstore.document import Document as LangchainDocument
+
+import pypdf
+from docx import Document as DocxDocument
+from pptx import Presentation
+
+from app.config import ChunkingStrategy, ChunkingConfig
+from app.models import Document, DocumentStatus
+
+logger = logging.getLogger(__name__)
+
+class DocumentProcessor:
+    def __init__(self):
+        self.supported_formats = {
+            '.pdf': self._extract_pdf,
+            '.txt': self._extract_txt,
+            '.docx': self._extract_docx,
+            '.pptx': self._extract_pptx
+        }
+
+    def extract_text(self, file_path: str) -> str:
+        """Extract text from various file formats."""
+        file_extension = Path(file_path).suffix.lower()
+        
+        if file_extension not in self.supported_formats:
+            raise ValueError(f"Unsupported file format: {file_extension}")
+        
+        try:
+            return self.supported_formats[file_extension](file_path)
+        except Exception as e:
+            logger.error(f"Error extracting text from {file_path}: {str(e)}")
+            raise
+
+    def _extract_pdf(self, file_path: str) -> str:
+        """Extract text from PDF files."""
+        text = ""
+        with open(file_path, 'rb') as file:
+            pdf_reader = pypdf.PdfReader(file)
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+        return text.strip()
+
+    def _extract_txt(self, file_path: str) -> str:
+        """Extract text from TXT files."""
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+
+    def _extract_docx(self, file_path: str) -> str:
+        """Extract text from DOCX files."""
+        doc = DocxDocument(file_path)
+        text = ""
+        for paragraph in doc.paragraphs:
+            text += paragraph.text + "\n"
+        return text.strip()
+
+    def _extract_pptx(self, file_path: str) -> str:
+        """Extract text from PPTX files."""
+        prs = Presentation(file_path)
+        text = ""
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text += shape.text + "\n"
+        return text.strip()
+
+    def chunk_text(self, text: str, config: ChunkingConfig) -> List[LangchainDocument]:
+        """Chunk text based on the specified strategy."""
+        if config.strategy == ChunkingStrategy.FIXED_SIZE:
+            splitter = CharacterTextSplitter(
+                chunk_size=config.chunk_size,
+                chunk_overlap=config.chunk_overlap,
+                separator="\n\n"
+            )
+        elif config.strategy == ChunkingStrategy.RECURSIVE_TEXT:
+            separators = config.separators or ["\n\n", "\n", " ", ""]
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=config.chunk_size,
+                chunk_overlap=config.chunk_overlap,
+                separators=separators
+            )
+        elif config.strategy == ChunkingStrategy.SENTENCE:
+            splitter = SentenceTransformersTokenTextSplitter(
+                chunk_overlap=config.chunk_overlap,
+                tokens_per_chunk=config.chunk_size
+            )
+        elif config.strategy == ChunkingStrategy.SEMANTIC:
+            # For now, use recursive as semantic chunking requires more complex implementation
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=config.chunk_size,
+                chunk_overlap=config.chunk_overlap,
+                separators=["\n\n", "\n", ". ", " ", ""]
+            )
+        else:
+            raise ValueError(f"Unsupported chunking strategy: {config.strategy}")
+
+        return splitter.create_documents([text])
+
+    def process_document(
+        self, 
+        file_path: str, 
+        filename: str, 
+        collection_name: str,
+        chunking_config: ChunkingConfig,
+        metadata: Dict[str, Any] = None
+    ) -> Document:
+        """Process a document: extract text, create document object."""
+        try:
+            # Extract text
+            content = self.extract_text(file_path)
+            
+            # Get file info
+            file_size = os.path.getsize(file_path)
+            file_type = Path(file_path).suffix.lower().lstrip('.')
+            
+            # Create document
+            document = Document(
+                id=str(uuid.uuid4()),
+                filename=filename,
+                content=content,
+                metadata=metadata or {},
+                status=DocumentStatus.UPLOADED,
+                collection_name=collection_name,
+                file_size=file_size,
+                file_type=file_type
+            )
+            
+            logger.info(f"Successfully processed document: {filename}")
+            return document
+            
+        except Exception as e:
+            logger.error(f"Error processing document {filename}: {str(e)}")
+            raise
+
+    def get_chunks(self, document: Document, chunking_config: ChunkingConfig) -> List[LangchainDocument]:
+        """Get chunks from a processed document."""
+        chunks = self.chunk_text(document.content, chunking_config)
+        
+        # Add metadata to chunks
+        for i, chunk in enumerate(chunks):
+            chunk.metadata.update({
+                "document_id": document.id,
+                "filename": document.filename,
+                "chunk_index": i,
+                "collection_name": document.collection_name,
+                **document.metadata
+            })
+        
+        return chunks

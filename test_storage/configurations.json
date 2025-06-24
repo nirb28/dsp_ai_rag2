@@ -1,0 +1,54 @@
+{
+  "test_collection": {
+    "collection_name": "test_collection",
+    "chunking": {
+      "strategy": "fixed_size",
+      "chunk_size": 200,
+      "chunk_overlap": 50,
+      "separators": null
+    },
+    "vector_store": {
+      "type": "faiss",
+      "index_path": "./storage/faiss_index",
+      "dimension": 384
+    },
+    "embedding": {
+      "model": "sentence-transformers/all-MiniLM-L6-v2",
+      "batch_size": 32
+    },
+    "generation": {
+      "model": "llama3-8b-8192",
+      "temperature": 0.7,
+      "max_tokens": 1024,
+      "top_p": 0.9
+    },
+    "retrieval_k": 5,
+    "similarity_threshold": 0.7
+  },
+  "preset_collection": {
+    "collection_name": "preset_collection",
+    "chunking": {
+      "strategy": "fixed_size",
+      "chunk_size": 500,
+      "chunk_overlap": 50,
+      "separators": null
+    },
+    "vector_store": {
+      "type": "faiss",
+      "index_path": "./storage/faiss_index",
+      "dimension": 384
+    },
+    "embedding": {
+      "model": "sentence-transformers/all-MiniLM-L6-v2",
+      "batch_size": 64
+    },
+    "generation": {
+      "model": "llama3-8b-8192",
+      "temperature": 0.5,
+      "max_tokens": 512,
+      "top_p": 0.9
+    },
+    "retrieval_k": 5,
+    "similarity_threshold": 0.7
+  }
+}

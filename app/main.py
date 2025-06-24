@@ -1,0 +1,100 @@
+import logging
+import json
+import datetime
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import uvicorn
+from fastapi.encoders import jsonable_encoder
+
+from app.api.endpoints import router
+from app.models import ErrorResponse
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+
+# Create FastAPI app
+app = FastAPI(
+    title="RAG as a Service",
+    description="A comprehensive RAG (Retrieval-Augmented Generation) platform with configurable chunking, embedding, and generation strategies",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify actual origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include API routes
+app.include_router(router, prefix="/api/v1", tags=["RAG Service"])
+
+class CustomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles datetime objects."""
+    def default(self, obj):
+        if isinstance(obj, (datetime.datetime, datetime.date)):
+            return obj.isoformat()
+        return super().default(obj)
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """Handle HTTP exceptions."""
+    error_content = ErrorResponse(
+        error=exc.detail,
+        detail=str(exc.detail) if hasattr(exc, 'detail') else None
+    ).dict()
+    
+    # Use jsonable_encoder to properly handle datetime objects
+    json_compatible_content = jsonable_encoder(error_content)
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=json_compatible_content
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    """Handle general exceptions."""
+    logger.error(f"Unhandled exception: {str(exc)}")
+    
+    error_content = ErrorResponse(
+        error="Internal server error",
+        detail=str(exc)
+    ).dict()
+    
+    # Use jsonable_encoder to properly handle datetime objects
+    json_compatible_content = jsonable_encoder(error_content)
+    
+    return JSONResponse(
+        status_code=500,
+        content=json_compatible_content
+    )
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information."""
+    return {
+        "message": "RAG as a Service API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/v1/health"
+    }
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
