@@ -32,13 +32,18 @@ class EmbeddingService:
                         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
                         local_model_path = os.path.join(project_root, settings.LOCAL_MODELS_PATH)
                     
-                    local_model_dir = os.path.join(local_model_path, f'models--sentence-transformers--{model_name}')
-                    if os.path.exists(local_model_dir):
-                        logger.info(f"Loading sentence transformer model from local directory: {local_model_dir}")
-                        self.model = SentenceTransformer(local_model_dir)
-                    else:
-                        # Fall back to default behavior (download from internet)
-                        logger.info(f"Local model not found at {local_model_dir}, loading from internet")
+                    # For sentence-transformers, we need to handle local models differently
+                    # The model just uses the regular model name, not the path
+                    # We'll let the library's caching mechanism find it
+                    try:
+                        # First try to use the model directly - the library will look in cache
+                        logger.info(f"Using model: {model_name} (library will check cache first)")
+                        # Set cache dir to our local models path to ensure it looks there
+                        os.environ['SENTENCE_TRANSFORMERS_HOME'] = local_model_path
+                        self.model = SentenceTransformer(model_name)
+                    except Exception as e:
+                        logger.warning(f"Could not load from local cache: {str(e)}")
+                        logger.info(f"Downloading model from internet: {model_name}")
                         self.model = SentenceTransformer(model_name)
                 else:
                     # Directly use internet
