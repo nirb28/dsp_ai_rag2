@@ -2,6 +2,7 @@ import logging
 from typing import List
 import numpy as np
 import json
+import os
 import requests
 from sentence_transformers import SentenceTransformer
 import openai
@@ -21,7 +22,29 @@ class EmbeddingService:
         try:
             if self.config.model.value.startswith("sentence-transformers/"):
                 model_name = self.config.model.value.replace("sentence-transformers/", "")
-                self.model = SentenceTransformer(model_name)
+                
+                # Check if we should try using local models first
+                if settings.PREFER_LOCAL_MODELS:
+                    # Use configured local models path or fallback to default
+                    local_model_path = os.path.abspath(settings.LOCAL_MODELS_PATH)
+                    if not os.path.isabs(local_model_path):
+                        # If relative path, make it absolute from project root
+                        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+                        local_model_path = os.path.join(project_root, settings.LOCAL_MODELS_PATH)
+                    
+                    local_model_dir = os.path.join(local_model_path, f'models--sentence-transformers--{model_name}')
+                    if os.path.exists(local_model_dir):
+                        logger.info(f"Loading sentence transformer model from local directory: {local_model_dir}")
+                        self.model = SentenceTransformer(local_model_dir)
+                    else:
+                        # Fall back to default behavior (download from internet)
+                        logger.info(f"Local model not found at {local_model_dir}, loading from internet")
+                        self.model = SentenceTransformer(model_name)
+                else:
+                    # Directly use internet
+                    logger.info(f"Using internet to load model: {model_name}")
+                    self.model = SentenceTransformer(model_name)
+                    
                 logger.info(f"Initialized SentenceTransformer model: {model_name}")
             elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
                 if not settings.OPENAI_API_KEY:
