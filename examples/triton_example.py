@@ -4,7 +4,12 @@ Example script demonstrating how to use Triton Inference Server with the RAG sys
 This example shows how to configure and use both embedding and generation via Triton.
 """
 
+import os
+import sys
 import asyncio
+
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app.config import (
     RAGConfig, 
     EmbeddingConfig, 
@@ -18,7 +23,7 @@ from app.config import (
 from app.services.embedding_service import EmbeddingService
 from app.services.generation_service import GenerationServiceFactory
 from app.services.rag_service import RAGService
-from app.services.vector_store import FaissVectorStore
+from app.services.vector_store import FAISSVectorStore
 from app.services.document_processor import DocumentProcessor
 
 async def main():
@@ -38,7 +43,7 @@ async def main():
             dimension=1024  # Adjust based on your model's dimension
         ),
         embedding=EmbeddingConfig(
-            model=EmbeddingModel.TRITON_EMBEDDING,
+            model=EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM,
             batch_size=32
         ),
         generation=GenerationConfig(
@@ -51,62 +56,51 @@ async def main():
         similarity_threshold=0.7
     )
     
-    # Initialize services
-    print("Initializing embedding service with Triton...")
-    embedding_service = EmbeddingService(config.embedding)
+    # Initialize the RAG service
+    print("Initializing RAG service...")
+    rag_service = RAGService()
     
-    print("Initializing vector store...")
-    vector_store = FaissVectorStore(config.vector_store)
+    # Set the configuration for the collection
+    print("Setting Triton configuration for collection...")
+    rag_service.set_configuration("triton-demo", config)
     
-    print("Initializing document processor...")
-    doc_processor = DocumentProcessor(config.chunking)
-    
-    print("Initializing generation service with Triton...")
-    generation_service = GenerationServiceFactory.create_service(config.generation)
-    
-    # Initialize RAG service
-    rag_service = RAGService(
-        doc_processor=doc_processor,
-        embedding_service=embedding_service,
-        vector_store=vector_store,
-        generation_service=generation_service,
-        retrieval_k=config.retrieval_k,
-        similarity_threshold=config.similarity_threshold
-    )
-    
-    # Test document processing and embedding
-    test_doc = {
-        "content": "Triton Inference Server is an open-source inference serving software that streamlines AI inference by standardizing model deployment and execution across different frameworks. It helps manage scaling, batching, and provides a consistent API for serving AI models.",
-        "metadata": {
-            "filename": "triton_info.txt",
-            "source": "test"
-        }
-    }
-    
-    # Process and index the document
-    print("\nProcessing and indexing test document...")
-    chunks = doc_processor.process_text(test_doc["content"])
-    
-    document_ids = []
-    for i, chunk in enumerate(chunks):
-        doc_id = f"triton-doc-{i}"
-        document_ids.append(doc_id)
-        await rag_service.index_text(
-            doc_id,
-            chunk,
-            {"filename": test_doc["metadata"]["filename"], "chunk_id": i}
+    # Create a test document file
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix='.txt', delete=False, mode='w') as f:
+        f.write("Triton Inference Server is an open-source inference serving software that streamlines AI inference by standardizing model deployment and execution across different frameworks. It helps manage scaling, batching, and provides a consistent API for serving AI models.")
+        test_file_path = f.name
+
+    try:
+        # Process and index the document
+        print("\nUploading and processing test document...")
+        await rag_service.upload_document(
+            file_path=test_file_path,
+            filename="triton_info.txt",
+            collection_name="triton-demo",
+            metadata={"source": "test"},
+            process_immediately=True
         )
-    
-    print(f"Indexed {len(chunks)} chunks")
-    
-    # Test querying
-    test_query = "What is Triton Inference Server used for?"
-    
-    print(f"\nQuerying: '{test_query}'")
-    response = await rag_service.query(test_query)
-    
-    print("\n=== Response ===")
-    print(response)
+        
+        # Test querying
+        test_query = "What is Triton Inference Server used for?"
+        
+        print(f"\nQuerying: '{test_query}'")
+        response = await rag_service.query(test_query, collection_name="triton-demo")
+        
+        print("\n=== Response ===")
+        print(f"Query: {response.query}")
+        print(f"Answer: {response.answer}")
+        print(f"Processing time: {response.processing_time:.2f} seconds")
+        print("\nSources:")
+        for i, source in enumerate(response.sources, 1):
+            print(f"Source {i} - Score: {source['similarity_score']:.4f}")
+            print(f"Content: {source['content'][:100]}...")
+            print()
+    finally:
+        # Clean up the temporary file
+        import os
+        if os.path.exists(test_file_path):
+            os.unlink(test_file_path)
     
     print("\nDone!")
 
