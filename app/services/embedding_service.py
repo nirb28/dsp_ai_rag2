@@ -31,7 +31,8 @@ class EmbeddingService:
                         # If relative path, make it absolute from project root
                         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
                         local_model_path = os.path.join(project_root, settings.LOCAL_MODELS_PATH)
-                    
+                        logger.info(f"Will try to load model locally from: {local_model_path}")
+
                     # For sentence-transformers, we need to handle local models differently
                     # The model just uses the regular model name, not the path
                     # We'll let the library's caching mechanism find it
