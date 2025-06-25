@@ -62,9 +62,9 @@ temp/
 tmp/
 
 # Model files (large)
-*.bin
-*.safetensors
-models/
+#*.bin
+#*.safetensors
+#models/
 
 # Data files
 *.pdf
