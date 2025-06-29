@@ -40,8 +40,9 @@ class EmbeddingService:
                         # First try to use the model directly - the library will look in cache
                         logger.info(f"Using model: {model_name} (library will check cache first)")
                         # Set cache dir to our local models path to ensure it looks there
-                        os.environ['SENTENCE_TRANSFORMERS_HOME'] = local_model_path
-                        self.model = SentenceTransformer(model_name)
+                        #os.environ['SENTENCE_TRANSFORMERS_HOME'] = local_model_path
+                        # model.save(local_model_path)
+                        self.model = SentenceTransformer(local_model_path+'/'+model_name)
                     except Exception as e:
                         logger.warning(f"Could not load from local cache: {str(e)}")
                         logger.info(f"Downloading model from internet: {model_name}")

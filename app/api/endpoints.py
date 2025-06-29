@@ -122,13 +122,34 @@ async def upload_document(
 
 @router.post("/query", response_model=QueryResponse)
 async def query_documents(request: QueryRequest):
-    """Query documents in a collection."""
+    """Query documents in a collection.
+    
+    Supports optional context items for context injection (e.g., chat history)
+    and uses reranking if configured for the collection.
+    """
     try:
+        # Check if reranking and context injection are enabled for this collection
+        config = rag_service.get_configuration(request.collection_name)
+        reranking_enabled = hasattr(config, 'reranking') and config.reranking and config.reranking.enabled
+        context_enabled = hasattr(config, 'context_injection') and config.context_injection and config.context_injection.enabled
+        
+        if context_enabled:
+            logger.info(f"Context injection enabled for collection '{request.collection_name}'")
+        if reranking_enabled:
+            logger.info(f"Reranking enabled for collection '{request.collection_name}' using model: {config.reranking.model}")
+        
+        # Convert context items to list of dictionaries if provided
+        context_items = None
+        if request.context_items:
+            context_items = [item.dict() for item in request.context_items]
+            logger.info(f"Using {len(context_items)} context items for query")
+        
         response = await rag_service.query(
             query=request.query,
             collection_name=request.collection_name,
             k=request.k,
-            similarity_threshold=request.similarity_threshold
+            similarity_threshold=request.similarity_threshold,
+            context_items=context_items
         )
         
         # Filter metadata if requested
