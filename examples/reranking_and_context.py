@@ -7,7 +7,7 @@ This script:
 3. Compares results with and without these features
 
 Usage:
-    python test_reranking_and_context.py
+    python reranking_and_context.py
 """
 
 import asyncio
@@ -128,7 +128,7 @@ async def main():
     print("\nQuery WITHOUT context injection:")
     query_no_context = "How do they relate to context windows?"
     response_no_context = requests.post(
-        f"{BASE_URL}{API_PREFIX}/query_documents",
+        f"{BASE_URL}{API_PREFIX}/query",
         json={"query": query_no_context, "collection_name": collection_name}
     ).json()
     
@@ -139,7 +139,7 @@ async def main():
     print("\nQuery WITH context injection:")
     query_with_context = "How do they relate to context windows?"
     response_with_context = requests.post(
-        f"{BASE_URL}{API_PREFIX}/query_documents",
+        f"{BASE_URL}{API_PREFIX}/query",
         json={
             "query": query_with_context,
             "collection_name": collection_name,
@@ -164,7 +164,7 @@ async def main():
     print("\nQuery WITHOUT reranking:")
     query = "What is retrieval augmented generation?"
     response_no_reranking = requests.post(
-        f"{BASE_URL}{API_PREFIX}/query_documents",
+        f"{BASE_URL}{API_PREFIX}/query",
         json={"query": query, "collection_name": collection_name}
     ).json()
     
@@ -181,7 +181,7 @@ async def main():
     # Query with reranking
     print("\nQuery WITH reranking:")
     response_with_reranking = requests.post(
-        f"{BASE_URL}{API_PREFIX}/query_documents",
+        f"{BASE_URL}{API_PREFIX}/query",
         json={"query": query, "collection_name": collection_name}
     ).json()
     

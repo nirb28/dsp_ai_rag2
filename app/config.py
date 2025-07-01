@@ -20,6 +20,7 @@ class EmbeddingModel(str, Enum):
     SENTENCE_TRANSFORMERS_ALL_MPNET = "sentence-transformers/all-mpnet-base-v2"
     OPENAI_TEXT_EMBEDDING_ADA_002 = "text-embedding-ada-002"
     TRITON_EMBEDDING = "triton-embedding"  # Add Triton embedding model
+    LOCAL_MODEL_SERVER = "local-model-server"  # Local model server endpoint
 
 class GenerationModel(str, Enum):
     GROQ_LLAMA3_8B = "llama3-8b-8192"
@@ -105,6 +106,8 @@ class Settings:
     # Model loading settings
     PREFER_LOCAL_MODELS: bool = os.getenv("PREFER_LOCAL_MODELS", "True").lower() == "true"
     LOCAL_MODELS_PATH: str = os.getenv("LOCAL_MODELS_PATH", "./models")
+    # Local model server settings
+    MODEL_SERVER_URL: str = os.getenv("MODEL_SERVER_URL", "http://localhost:8001")
     # Triton server settings
     TRITON_SERVER_URL: str = os.getenv("TRITON_SERVER_URL", "http://localhost:8000")
     TRITON_EMBEDDING_MODEL: str = os.getenv("TRITON_EMBEDDING_MODEL", "embedding-model")

@@ -63,6 +63,19 @@ class EmbeddingService:
                 if not settings.TRITON_SERVER_URL:
                     raise ValueError("Triton server URL not provided")
                 logger.info(f"Using Triton embedding model at {settings.TRITON_SERVER_URL}")
+            elif self.config.model == EmbeddingModel.LOCAL_MODEL_SERVER:
+                # Local model server doesn't need initialization, just verify the server URL is set
+                if not settings.MODEL_SERVER_URL:
+                    raise ValueError("Model server URL not provided")
+                # Check if model server is reachable
+                try:
+                    response = requests.get(f"{settings.MODEL_SERVER_URL}/health")
+                    if response.status_code == 200:
+                        logger.info(f"Connected to local model server at {settings.MODEL_SERVER_URL}")
+                    else:
+                        logger.warning(f"Local model server returned status code {response.status_code}")
+                except Exception as e:
+                    logger.warning(f"Could not connect to local model server: {str(e)}")
             else:
                 raise ValueError(f"Unsupported embedding model: {self.config.model}")
         except Exception as e:
@@ -78,6 +91,8 @@ class EmbeddingService:
                 return self._embed_with_openai(texts)
             elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
                 return self._embed_with_triton(texts)
+            elif self.config.model == EmbeddingModel.LOCAL_MODEL_SERVER:
+                return self._embed_with_local_server(texts)
             else:
                 raise ValueError(f"Unsupported embedding model: {self.config.model}")
         except Exception as e:
@@ -153,6 +168,44 @@ class EmbeddingService:
         
         return embeddings
 
+    def _embed_with_local_server(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings using the local model server."""
+        endpoint = f"{settings.MODEL_SERVER_URL}/embeddings"
+        
+        embeddings = []
+        batch_size = self.config.batch_size
+        
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            
+            # Format the request according to the model server API
+            payload = {
+                "texts": batch,
+                "model_name": self.config.model.value.replace("local-model-server/", "") 
+                             if self.config.model.value.startswith("local-model-server/") 
+                             else "all-MiniLM-L6-v2"  # default model if none specified
+            }
+            
+            try:
+                response = requests.post(
+                    url=endpoint,
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                if response.status_code != 200:
+                    raise Exception(f"Model server returned error: {response.status_code}, {response.text}")
+                    
+                result = response.json()
+                # Parse the response according to our model server API
+                batch_embeddings = result["embeddings"]
+                embeddings.extend(batch_embeddings)
+            except Exception as e:
+                logger.error(f"Error calling local model server: {str(e)}")
+                raise
+        
+        return embeddings
+        
     def get_dimension(self) -> int:
         """Get the dimension of embeddings produced by this model."""
         if self.config.model == EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM:
@@ -164,6 +217,10 @@ class EmbeddingService:
         elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
             # This might need to be configured based on your Triton model
             return 1024  # Adjust based on your model's dimension
+        elif self.config.model == EmbeddingModel.LOCAL_MODEL_SERVER:
+            # Generate a test embedding to get the dimension from the local server
+            test_embedding = self.embed_texts(["test"])
+            return len(test_embedding[0])
         else:
             # Default fallback - generate a test embedding to get dimension
             test_embedding = self.embed_texts(["test"])
