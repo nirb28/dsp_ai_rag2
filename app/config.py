@@ -50,6 +50,7 @@ class VectorStoreConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     model: EmbeddingModel = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM
     batch_size: int = Field(default=32, ge=1, le=128)
+    model_server_url: Optional[str] = Field(default=None, description="URL for the local model server")
 
 class RerankerConfig(BaseModel):
     """Configuration for the reranking step in the retrieval process."""

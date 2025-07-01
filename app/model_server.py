@@ -2,6 +2,7 @@ import os
 import logging
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+import dotenv
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, Query
@@ -10,6 +11,9 @@ from pydantic import BaseModel
 
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from app.config import settings
+
+# Load environment variables directly
+dotenv.load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,8 +38,8 @@ app.add_middleware(
 # Dictionary to store loaded models
 loaded_models: Dict[str, Any] = {}
 
-# Model base directory
-MODEL_DIR = Path(settings.LOCAL_MODELS_PATH)
+# Model base directory - load directly from .env if available, otherwise use default
+MODEL_DIR = Path(os.getenv('LOCAL_MODELS_PATH', './models'))
 
 
 class EmbeddingRequest(BaseModel):
@@ -173,10 +177,26 @@ async def list_models():
 
 
 if __name__ == "__main__":
+    # Log model directory information
+    logger.info(f"Using model directory: {MODEL_DIR.absolute()}")
+    if MODEL_DIR.exists():
+        models = [d.name for d in MODEL_DIR.iterdir() if d.is_dir()]
+        logger.info(f"Found models: {models}")
+    else:
+        logger.warning(f"Model directory does not exist: {MODEL_DIR.absolute()}")
+        try:
+            MODEL_DIR.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created model directory: {MODEL_DIR.absolute()}")
+        except Exception as e:
+            logger.error(f"Failed to create model directory: {str(e)}")
+    
+    # Start server
+    logger.info("Starting model server on port 8001")
     uvicorn.run(
         "app.model_server:app",
         host="0.0.0.0",
         port=8001,  # Using a different port than the main app
-        reload=True,
+        reload=False,
         log_level="info"
     )
+    logger.info("Model server stopped")

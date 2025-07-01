@@ -18,6 +18,8 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+import requests
+
 import pytest
 import tempfile
 import json
@@ -26,7 +28,7 @@ import argparse
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.config import RAGConfig
+from app.config import RAGConfig, EmbeddingModel
 
 
 @pytest.fixture
@@ -43,18 +45,40 @@ def temp_storage(monkeypatch):
         yield temp_dir
 
 
+def check_model_server_available(url="http://localhost:8001"):
+    """Check if the model server is running and available."""
+    try:
+        response = requests.get(f"{url}/health", timeout=2)
+        return response.status_code == 200
+    except (requests.ConnectionError, requests.Timeout):
+        return False
+
+
 @pytest.fixture
 def batch_config():
     """Create a configuration optimized for batch document processing."""
+    # Check if model server is running, if not use SentenceTransformers instead
+    model_server_available = check_model_server_available()
+    
+    if not model_server_available:
+        print("WARNING: Model server not available at http://localhost:8001. Using SentenceTransformers instead.")
+        embedding_config = {
+            "model": "sentence-transformers/all-MiniLM-L6-v2"
+        }
+    else:
+        print("Using local model server for embeddings")
+        embedding_config = {
+            "model": "local-model-server",
+            "model_server_url": "http://localhost:8001"
+        }
+        
     return {
         "chunking": {
             "strategy": "recursive_text",  # Better for longer documents
             "chunk_size": 1000,
             "chunk_overlap": 200
         },
-        "embedding": {
-            "model": "sentence-transformers/all-MiniLM-L6-v2"
-        },
+        "embedding": embedding_config,
         "vector_store": {
             "type": "faiss"
         },

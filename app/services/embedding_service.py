@@ -65,13 +65,14 @@ class EmbeddingService:
                 logger.info(f"Using Triton embedding model at {settings.TRITON_SERVER_URL}")
             elif self.config.model == EmbeddingModel.LOCAL_MODEL_SERVER:
                 # Local model server doesn't need initialization, just verify the server URL is set
-                if not settings.MODEL_SERVER_URL:
+                model_server_url = self.config.model_server_url or settings.MODEL_SERVER_URL
+                if not model_server_url:
                     raise ValueError("Model server URL not provided")
                 # Check if model server is reachable
                 try:
-                    response = requests.get(f"{settings.MODEL_SERVER_URL}/health")
+                    response = requests.get(f"{model_server_url}/health")
                     if response.status_code == 200:
-                        logger.info(f"Connected to local model server at {settings.MODEL_SERVER_URL}")
+                        logger.info(f"Connected to local model server at {model_server_url}")
                     else:
                         logger.warning(f"Local model server returned status code {response.status_code}")
                 except Exception as e:
@@ -170,7 +171,9 @@ class EmbeddingService:
 
     def _embed_with_local_server(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings using the local model server."""
-        endpoint = f"{settings.MODEL_SERVER_URL}/embeddings"
+        # Use model_server_url from config if provided, otherwise fall back to settings
+        model_server_url = self.config.model_server_url or settings.MODEL_SERVER_URL
+        endpoint = f"{model_server_url}/embeddings"
         
         embeddings = []
         batch_size = self.config.batch_size
