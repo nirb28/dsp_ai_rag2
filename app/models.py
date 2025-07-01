@@ -85,3 +85,20 @@ class CollectionInfo(BaseModel):
 class CollectionsResponse(BaseModel):
     collections: List[CollectionInfo]
     total_count: int
+
+class RetrieveRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=1000)
+    collection_name: str = "default"
+    k: int = Field(default=5, ge=1, le=50)
+    similarity_threshold: Optional[float] = Field(default=0.0, ge=0.0, le=1.0)
+    include_metadata: bool = True
+    use_reranking: bool = False
+    include_vectors: bool = False
+    config: Optional[Dict[str, Any]] = None  # Optional partial config overrides
+
+class RetrieveResponse(BaseModel):
+    query: str
+    documents: List[Dict[str, Any]]
+    processing_time: float
+    collection_name: str
+    total_found: int

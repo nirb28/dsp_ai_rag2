@@ -8,7 +8,8 @@ import logging
 from app.models import (
     DocumentUploadResponse, QueryRequest, QueryResponse, 
     ConfigurationRequest, ConfigurationResponse, HealthResponse,
-    ErrorResponse, CollectionsResponse, CollectionInfo
+    ErrorResponse, CollectionsResponse, CollectionInfo,
+    RetrieveRequest, RetrieveResponse
 )
 from app.config import RAGConfig, DEFAULT_CONFIGS, settings
 from app.services.rag_service import RAGService
@@ -356,6 +357,115 @@ async def debug_collection(collection_name: str, limit: int = 10, show_vectors: 
         raise
     except Exception as e:
         logger.error(f"Error debugging collection: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/retrieve", response_model=RetrieveResponse)
+async def retrieve_documents(request: RetrieveRequest):
+    """Retrieve relevant documents from a collection without generating a response.
+    
+    This endpoint allows direct access to the vector retrieval functionality without LLM generation.
+    It's useful for debugging, testing, or when only the context documents are needed.
+    
+    Args:
+        request: The retrieval request containing query and options
+    
+    Returns:
+        Documents retrieved from the vector store, optionally reranked
+    """
+    try:
+        start_time = time.time()
+        collection_name = request.collection_name
+        
+        # Validate collection exists
+        if not rag_service.vector_store_manager.collection_exists(collection_name):
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Collection '{collection_name}' not found"
+            )
+        
+        # Get the vector store for this collection
+        vector_store = rag_service._get_vector_store(collection_name)
+        
+        # Get configuration, with optional overrides from the request
+        config = rag_service.get_configuration(collection_name)
+        temp_config = None
+        
+        if request.config:
+            # Create a temporary configuration with overrides
+            temp_config_dict = config.dict()
+            temp_config_dict.update(request.config)
+            try:
+                temp_config = RAGConfig(**temp_config_dict)
+                # Use temporary config for this request
+                config = temp_config
+            except Exception as e:
+                logger.warning(f"Invalid config override: {str(e)}")
+        
+        # Get embedding service for this collection
+        embedding_service = rag_service._get_embedding_service(collection_name)
+        
+        # Get reranker service if needed
+        reranker_service = None
+        if request.use_reranking:
+            reranker_service = rag_service._get_reranker_service(collection_name)
+        
+        # Get query parameters
+        k = request.k
+        similarity_threshold = request.similarity_threshold if request.similarity_threshold is not None else config.retrieval.similarity_threshold
+        
+        # Retrieve documents
+        results = vector_store.similarity_search(
+            request.query,
+            k=k,
+            similarity_threshold=similarity_threshold
+        )
+        
+        # Process documents for response
+        documents = []
+        for doc, score in results:
+            document = {
+                'content': doc.page_content,
+                'similarity_score': score
+            }
+            
+            if request.include_metadata:
+                document['metadata'] = doc.metadata
+                
+            documents.append(document)
+        
+        # Apply reranking if requested
+        if request.use_reranking and reranker_service and reranker_service.config.enabled and documents:
+            documents = await reranker_service.rerank(request.query, documents)
+        
+        # Include embedding vectors if requested
+        if request.include_vectors and documents:
+            try:
+                # Get the embeddings for the document contents
+                texts = [doc['content'] for doc in documents]
+                embeddings = embedding_service.embed_texts(texts)
+                
+                # Add embeddings to documents
+                for i, doc in enumerate(documents):
+                    if i < len(embeddings):
+                        doc['vector'] = embeddings[i]
+            except Exception as e:
+                logger.warning(f"Failed to include vectors: {str(e)}")
+        
+        processing_time = time.time() - start_time
+        
+        return RetrieveResponse(
+            query=request.query,
+            documents=documents,
+            processing_time=processing_time,
+            collection_name=collection_name,
+            total_found=len(documents)
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post("/configure/preset/{preset_name}")
