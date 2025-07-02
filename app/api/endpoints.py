@@ -11,7 +11,7 @@ from app.models import (
     ErrorResponse, CollectionsResponse, CollectionInfo,
     RetrieveRequest, RetrieveResponse
 )
-from app.config import RAGConfig, DEFAULT_CONFIGS, settings
+from app.config import RAGConfig, settings
 from app.services.rag_service import RAGService
 from app.services.vector_store import VectorStoreManager, FAISSVectorStore
 
@@ -243,19 +243,7 @@ async def delete_collection(collection_name: str):
         logger.error(f"Error deleting collection: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.get("/presets")
-async def get_configuration_presets():
-    """Get available configuration presets."""
-    return {
-        "presets": {
-            name: config.dict() for name, config in DEFAULT_CONFIGS.items()
-        },
-        "description": {
-            "fast_processing": "Optimized for speed with smaller chunks and faster models",
-            "high_quality": "Optimized for quality with larger chunks and better models",
-            "balanced": "Balanced approach between speed and quality"
-        }
-    }
+# Preset functionality has been removed
 
 @router.get("/configurations")
 async def list_all_configurations():
@@ -468,32 +456,4 @@ async def retrieve_documents(request: RetrieveRequest):
         logger.error(f"Error retrieving documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.post("/configure/preset/{preset_name}")
-async def apply_configuration_preset(preset_name: str, collection_name: str = "default"):
-    """Apply a configuration preset to a collection."""
-    try:
-        if preset_name not in DEFAULT_CONFIGS:
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Preset '{preset_name}' not found. Available presets: {list(DEFAULT_CONFIGS.keys())}"
-            )
-        
-        config = DEFAULT_CONFIGS[preset_name]
-        config.collection_name = collection_name
-        
-        success = rag_service.set_configuration(collection_name, config)
-        
-        if success:
-            return ConfigurationResponse(
-                collection_name=collection_name,
-                config=config.dict(),
-                message=f"Applied preset '{preset_name}' to collection '{collection_name}'"
-            )
-        else:
-            raise HTTPException(status_code=500, detail="Failed to apply preset")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error applying preset: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+# Preset application endpoint has been removed
