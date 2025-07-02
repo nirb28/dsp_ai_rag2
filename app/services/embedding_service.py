@@ -4,7 +4,6 @@ import numpy as np
 import json
 import os
 import requests
-from sentence_transformers import SentenceTransformer
 import openai
 
 from app.config import EmbeddingModel, EmbeddingConfig, settings
@@ -14,57 +13,37 @@ logger = logging.getLogger(__name__)
 class EmbeddingService:
     def __init__(self, config: EmbeddingConfig):
         self.config = config
-        self.model = None
         self._initialize_model()
 
     def _initialize_model(self):
-        """Initialize the embedding model based on configuration."""
+        """Verify API keys and endpoints for embedding services."""
         try:
             if self.config.model.value.startswith("sentence-transformers/"):
-                model_name = self.config.model.value.replace("sentence-transformers/", "")
-                
-                # Check if we should try using local models first
-                if settings.PREFER_LOCAL_MODELS:
-                    # Use configured local models path or fallback to default
-                    local_model_path = os.path.abspath(settings.LOCAL_MODELS_PATH)
-                    if not os.path.isabs(local_model_path):
-                        # If relative path, make it absolute from project root
-                        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-                        local_model_path = os.path.join(project_root, settings.LOCAL_MODELS_PATH)
-                        logger.info(f"Will try to load model locally from: {local_model_path}")
-
-                    # For sentence-transformers, we need to handle local models differently
-                    # The model just uses the regular model name, not the path
-                    # We'll let the library's caching mechanism find it
-                    try:
-                        # First try to use the model directly - the library will look in cache
-                        logger.info(f"Using model: {model_name} (library will check cache first)")
-                        # Set cache dir to our local models path to ensure it looks there
-                        #os.environ['SENTENCE_TRANSFORMERS_HOME'] = local_model_path
-                        # model.save(local_model_path)
-                        self.model = SentenceTransformer(local_model_path+'/'+model_name)
-                    except Exception as e:
-                        logger.warning(f"Could not load from local cache: {str(e)}")
-                        logger.info(f"Downloading model from internet: {model_name}")
-                        self.model = SentenceTransformer(model_name)
-                else:
-                    # Directly use internet
-                    logger.info(f"Using internet to load model: {model_name}")
-                    self.model = SentenceTransformer(model_name)
-                    
-                logger.info(f"Initialized SentenceTransformer model: {model_name}")
+                # Sentence transformer models should be accessed through the model server
+                model_server_url = self.config.model_server_url or settings.MODEL_SERVER_URL
+                if not model_server_url:
+                    raise ValueError("Model server URL not provided for sentence transformer models")
+                # Check if model server is reachable
+                try:
+                    response = requests.get(f"{model_server_url}/health")
+                    if response.status_code == 200:
+                        logger.info(f"Connected to model server for sentence transformers at {model_server_url}")
+                    else:
+                        logger.warning(f"Model server returned status code {response.status_code}")
+                except Exception as e:
+                    logger.warning(f"Could not connect to model server: {str(e)}")
             elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
                 if not settings.OPENAI_API_KEY:
                     raise ValueError("OpenAI API key not provided")
                 openai.api_key = settings.OPENAI_API_KEY
-                logger.info("Initialized OpenAI embedding model")
+                logger.info("Verified OpenAI API key is set")
             elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
-                # Triton doesn't need initialization, just verify the server URL is set
+                # Verify the server URL is set
                 if not settings.TRITON_SERVER_URL:
                     raise ValueError("Triton server URL not provided")
                 logger.info(f"Using Triton embedding model at {settings.TRITON_SERVER_URL}")
             elif self.config.model == EmbeddingModel.LOCAL_MODEL_SERVER:
-                # Local model server doesn't need initialization, just verify the server URL is set
+                # Verify the server URL is set
                 model_server_url = self.config.model_server_url or settings.MODEL_SERVER_URL
                 if not model_server_url:
                     raise ValueError("Model server URL not provided")
@@ -80,14 +59,16 @@ class EmbeddingService:
             else:
                 raise ValueError(f"Unsupported embedding model: {self.config.model}")
         except Exception as e:
-            logger.error(f"Error initializing embedding model: {str(e)}")
+            logger.error(f"Error initializing embedding service: {str(e)}")
             raise
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for a list of texts."""
         try:
             if self.config.model.value.startswith("sentence-transformers/"):
-                return self._embed_with_sentence_transformers(texts)
+                # Redirect to local model server for sentence transformers
+                model_name = self.config.model.value.replace("sentence-transformers/", "")
+                return self._embed_with_local_server(texts, model_name)
             elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
                 return self._embed_with_openai(texts)
             elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
@@ -99,19 +80,6 @@ class EmbeddingService:
         except Exception as e:
             logger.error(f"Error generating embeddings: {str(e)}")
             raise
-
-    def _embed_with_sentence_transformers(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings using SentenceTransformers."""
-        # Process in batches
-        embeddings = []
-        batch_size = self.config.batch_size
-        
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            batch_embeddings = self.model.encode(batch, convert_to_tensor=False)
-            embeddings.extend(batch_embeddings.tolist())
-        
-        return embeddings
 
     def _embed_with_openai(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings using OpenAI API."""
@@ -169,7 +137,7 @@ class EmbeddingService:
         
         return embeddings
 
-    def _embed_with_local_server(self, texts: List[str]) -> List[List[float]]:
+    def _embed_with_local_server(self, texts: List[str], specific_model=None) -> List[List[float]]:
         """Generate embeddings using the local model server."""
         # Use model_server_url from config if provided, otherwise fall back to settings
         model_server_url = self.config.model_server_url or settings.MODEL_SERVER_URL
@@ -181,12 +149,18 @@ class EmbeddingService:
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             
+            # Determine which model to use
+            if specific_model:
+                model_name = specific_model
+            else:
+                model_name = self.config.model.value.replace("local-model-server/", "") \
+                            if self.config.model.value.startswith("local-model-server/") \
+                            else "all-MiniLM-L6-v2"  # default model if none specified
+            
             # Format the request according to the model server API
             payload = {
                 "texts": batch,
-                "model_name": self.config.model.value.replace("local-model-server/", "") 
-                             if self.config.model.value.startswith("local-model-server/") 
-                             else "all-MiniLM-L6-v2"  # default model if none specified
+                "model_name": model_name
             }
             
             try:
@@ -204,27 +178,30 @@ class EmbeddingService:
                 batch_embeddings = result["embeddings"]
                 embeddings.extend(batch_embeddings)
             except Exception as e:
-                logger.error(f"Error calling local model server: {str(e)}")
+                logger.error(f"Error calling model server: {str(e)}")
                 raise
         
         return embeddings
         
     def get_dimension(self) -> int:
         """Get the dimension of embeddings produced by this model."""
-        if self.config.model == EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM:
-            return 384
-        elif self.config.model == EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MPNET:
-            return 768
-        elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
-            return 1536
-        elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
-            # This might need to be configured based on your Triton model
-            return 1024  # Adjust based on your model's dimension
-        elif self.config.model == EmbeddingModel.LOCAL_MODEL_SERVER:
-            # Generate a test embedding to get the dimension from the local server
+        # For all models, we'll determine dimensions by generating a test embedding
+        # This ensures we're always getting the current dimensions from the endpoint
+        try:
             test_embedding = self.embed_texts(["test"])
             return len(test_embedding[0])
-        else:
-            # Default fallback - generate a test embedding to get dimension
-            test_embedding = self.embed_texts(["test"])
-            return len(test_embedding[0])
+        except Exception as e:
+            # Fall back to known dimensions if endpoint call fails
+            logger.warning(f"Couldn't determine embedding dimension from endpoint: {str(e)}")
+            
+            if self.config.model == EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM:
+                return 384
+            elif self.config.model == EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MPNET:
+                return 768
+            elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
+                return 1536
+            elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
+                return 1024  # Adjust based on your model's dimension
+            else:
+                # Default fallback
+                return 768  # Common dimension for many embedding models

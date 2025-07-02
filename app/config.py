@@ -105,7 +105,6 @@ class Settings:
     MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
     ALLOWED_FILE_TYPES: list[str] = ["pdf", "txt", "docx", "pptx"]
     # Model loading settings
-    PREFER_LOCAL_MODELS: bool = os.getenv("PREFER_LOCAL_MODELS", "True").lower() == "true"
     LOCAL_MODELS_PATH: str = os.getenv("LOCAL_MODELS_PATH", "./models")
     # Local model server settings
     MODEL_SERVER_URL: str = os.getenv("MODEL_SERVER_URL", "http://localhost:8001")
