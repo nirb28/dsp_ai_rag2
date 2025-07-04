@@ -191,11 +191,11 @@ if __name__ == "__main__":
             logger.error(f"Failed to create model directory: {str(e)}")
     
     # Start server
-    logger.info("Starting model server on port 8001")
+    logger.info("Starting model server on port 9001")
     uvicorn.run(
         "app.model_server:app",
         host="0.0.0.0",
-        port=8001,  # Using a different port than the main app
+        port=9001,  # Using a different port than the main app
         reload=False,
         log_level="info"
     )
