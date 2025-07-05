@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 
 class EmbeddingService:
     def __init__(self, config: EmbeddingConfig):
-        self.config = config
+        # Convert dict to EmbeddingConfig if necessary
+        if isinstance(config, dict):
+            from app.config import EmbeddingConfig
+            self.config = EmbeddingConfig(**config)
+        else:
+            self.config = config
         self._initialize_model()
 
     def _initialize_model(self):

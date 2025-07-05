@@ -25,24 +25,24 @@ def test_root_endpoint(client):
     assert data["version"] == "1.0.0"
     assert data["docs"] == "/docs"
 
-def test_configure_collection(client, sample_config):
-    """Test configuring a collection."""
+def test_configure_configuration(client, sample_config):
+    """Test configuring a configuration."""
     response = client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": "test_collection",
+            "configuration_name": "test configuration",
             "config": sample_config
         }
     )
     assert response.status_code == 200
     
     data = response.json()
-    assert data["collection_name"] == "test_collection"
+    assert data["configuration_name"] == "test configuration"
     assert "config" in data
     assert "message" in data
 
-def test_configure_collection_invalid_config(client):
-    """Test configuring a collection with invalid config."""
+def test_configure_configuration_invalid_config(client):
+    """Test configuring a configuration with invalid config."""
     invalid_config = {
         "chunking": {
             "strategy": "invalid_strategy",  # Invalid strategy
@@ -51,31 +51,31 @@ def test_configure_collection_invalid_config(client):
     }
     
     response = client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": "test_collection",
+            "configuration_name": "test configuration",
             "config": invalid_config
         }
     )
     assert response.status_code == 400
 
 def test_get_configuration(client, sample_config):
-    """Test getting configuration for a collection."""
+    """Test getting configuration for a configuration."""
     # First set a configuration
     client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": "test_collection",
+            "configuration_name": "test configuration",
             "config": sample_config
         }
     )
     
     # Then get it
-    response = client.get("/api/v1/configure/test_collection")
+    response = client.get("/api/v1/configurations/test configuration")
     assert response.status_code == 200
     
     data = response.json()
-    assert data["collection_name"] == "test_collection"
+    assert data["configuration_name"] == "test configuration"
     assert "config" in data
 
 @patch('app.services.rag_service.RAGService.upload_document')
@@ -88,7 +88,7 @@ def test_upload_document_success(mock_upload, client, sample_text_file):
         id="test_doc_id",
         filename="test.txt",
         content="test content",
-        collection_name="default",
+        configuration_name="default",
         file_size=100,
         file_type="txt",
         status=DocumentStatus.INDEXED
@@ -100,7 +100,7 @@ def test_upload_document_success(mock_upload, client, sample_text_file):
             "/api/v1/upload",
             files={"file": ("test.txt", f, "text/plain")},
             data={
-                "collection_name": "default",
+                "configuration_name": "default",
                 "process_immediately": "true"
             }
         )
@@ -125,7 +125,7 @@ def test_upload_document_invalid_file_type(client):
             response = client.post(
                 "/api/v1/upload",
                 files={"file": ("test.xyz", f, "application/octet-stream")},
-                data={"collection_name": "default"}
+                data={"configuration_name": "default"}
             )
         
         assert response.status_code == 400
@@ -142,7 +142,7 @@ def test_upload_document_with_metadata(client, sample_text_file):
             id="test_doc_id",
             filename="test.txt",
             content="test content",
-            collection_name="default",
+            configuration_name="default",
             file_size=100,
             file_type="txt",
             status=DocumentStatus.INDEXED
@@ -156,7 +156,7 @@ def test_upload_document_with_metadata(client, sample_text_file):
                 "/api/v1/upload",
                 files={"file": ("test.txt", f, "text/plain")},
                 data={
-                    "collection_name": "default",
+                    "configuration_name": "default",
                     "metadata": json.dumps(metadata),
                     "process_immediately": "true"
                 }
@@ -171,7 +171,7 @@ def test_upload_document_invalid_metadata(client, sample_text_file):
             "/api/v1/upload",
             files={"file": ("test.txt", f, "text/plain")},
             data={
-                "collection_name": "default",
+                "configuration_name": "default",
                 "metadata": "invalid json",  # Invalid JSON
             }
         )
@@ -196,7 +196,7 @@ def test_query_documents_success(mock_query, client):
             }
         ],
         processing_time=0.5,
-        collection_name="default"
+        configuration_name="default"
     )
     mock_query.return_value = mock_response
     
@@ -204,7 +204,7 @@ def test_query_documents_success(mock_query, client):
         "/api/v1/query",
         json={
             "query": "test query",
-            "collection_name": "default",
+            "configuration_name": "default",
             "k": 5,
             "similarity_threshold": 0.7,
             "include_metadata": True
@@ -216,7 +216,7 @@ def test_query_documents_success(mock_query, client):
     assert data["query"] == "test query"
     assert data["answer"] == "test answer"
     assert len(data["sources"]) == 1
-    assert data["collection_name"] == "default"
+    assert data["configuration_name"] == "default"
 
 def test_query_documents_invalid_request(client):
     """Test query with invalid request."""
@@ -224,7 +224,7 @@ def test_query_documents_invalid_request(client):
         "/api/v1/query",
         json={
             "query": "",  # Empty query
-            "collection_name": "default"
+            "configuration_name": "default"
         }
     )
     
@@ -246,7 +246,7 @@ def test_query_documents_without_metadata(client):
                 }
             ],
             processing_time=0.5,
-            collection_name="default"
+            configuration_name="default"
         )
         mock_query.return_value = mock_response
         
@@ -254,7 +254,7 @@ def test_query_documents_without_metadata(client):
             "/api/v1/query",
             json={
                 "query": "test query",
-                "collection_name": "default",
+                "configuration_name": "default",
                 "include_metadata": False
             }
         )
@@ -263,47 +263,47 @@ def test_query_documents_without_metadata(client):
         data = response.json()
         assert data["sources"][0]["metadata"] == {}
 
-@patch('app.services.rag_service.RAGService.get_collections')
-def test_list_collections(mock_get_collections, client):
-    """Test listing collections."""
-    # Mock the get_collections method
-    mock_get_collections.return_value = [
+@patch('app.services.rag_service.RAGService.get_configurations')
+def test_list_configurations(mock_get_configurations, client):
+    """Test listing configurations."""
+    # Mock the get_configurations method
+    mock_get_configurations.return_value = [
         {
-            "name": "collection1",
+            "name": "configuration1",
             "document_count": 5,
             "config": {"chunking": {"strategy": "recursive_text"}}
         },
         {
-            "name": "collection2",
+            "name": "configuration2",
             "document_count": 3,
             "config": {"chunking": {"strategy": "fixed_size"}}
         }
     ]
     
-    response = client.get("/api/v1/collections")
+    response = client.get("/api/v1/configurations")
     assert response.status_code == 200
     
     data = response.json()
     assert data["total_count"] == 2
-    assert len(data["collections"]) == 2
-    assert data["collections"][0]["name"] == "collection1"
-    assert data["collections"][0]["document_count"] == 5
+    assert len(data["configurations"]) == 2
+    assert data["configurations"][0]["name"] == "configuration1"
+    assert data["configurations"][0]["document_count"] == 5
 
-@patch('app.services.rag_service.RAGService.delete_collection')
-def test_delete_collection_success(mock_delete, client):
-    """Test successful collection deletion."""
+@patch('app.services.rag_service.RAGService.delete_configuration')
+def test_delete_configuration_success(mock_delete, client):
+    """Test successful configuration deletion."""
     mock_delete.return_value = True
     
-    response = client.delete("/api/v1/collections/test_collection")
+    response = client.delete("/api/v1/configurations/test configuration")
     assert response.status_code == 200
     
     data = response.json()
     assert "deleted successfully" in data["message"]
 
-@patch('app.services.rag_service.RAGService.delete_collection')
-def test_delete_collection_not_found(mock_delete, client):
+@patch('app.services.rag_service.RAGService.delete_configuration')
+def test_delete_configuration_not_found(mock_delete, client):
     """Test deleting non-existent collection."""
     mock_delete.return_value = False
     
-    response = client.delete("/api/v1/collections/nonexistent")
+    response = client.delete("/api/v1/configurations/nonexistent")
     assert response.status_code == 404

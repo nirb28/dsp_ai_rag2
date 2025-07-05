@@ -56,7 +56,7 @@ def sample_text_file():
 def sample_config():
     """Sample RAG configuration for testing."""
     return {
-        "collection_name": "test_collection",
+        "configuration_name": "test_configuration",
         "chunking": {
             "strategy": "recursive_text",
             "chunk_size": 500,

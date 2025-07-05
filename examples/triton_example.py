@@ -3,7 +3,7 @@
 Example script demonstrating how to use Triton Inference Server with the RAG system.
 This example shows how to configure and use both embedding and generation via Triton.
 
-triton_example.py --embed-only --collection triton-demo
+triton_example.py --embed-only --configuration triton-demo
 """
 
 import sys
@@ -40,7 +40,7 @@ from app.services.document_processor import DocumentProcessor
 import argparse
 
 
-async def test_with_existing_index(collection_name="triton-demo"):
+async def test_with_existing_index(configuration_name="triton-demo"):
     """Test querying with an existing FAISS index"""
     print("\n=== Testing with existing FAISS index ===")
     
@@ -48,12 +48,12 @@ async def test_with_existing_index(collection_name="triton-demo"):
     rag_service = RAGService()
     
     # Get existing configuration
-    config = rag_service.get_configuration(collection_name)
+    config = rag_service.get_configuration(configuration_name)
     if not config:
-        print(f"Error: Collection '{collection_name}' not found")
+        print(f"Error: Configuration '{configuration_name}' not found")
         return
     
-    print(f"Using existing configuration for collection: {collection_name}")
+    print(f"Using existing configuration for collection: {configuration_name}")
     print(f"Index path: {config.vector_store.index_path}")
     print(f"Embedding model: {config.embedding.model.value}")
     print(f"Generation model: {config.generation.model.value}")
@@ -63,7 +63,7 @@ async def test_with_existing_index(collection_name="triton-demo"):
     
     print(f"\nQuerying: '{test_query}'")
     try:
-        response = await rag_service.query(test_query, collection_name=collection_name)
+        response = await rag_service.query(test_query, configuration_name=configuration_name)
         
         print("\n=== Response ===")
         print(f"Query: {response.query}")
@@ -78,7 +78,7 @@ async def test_with_existing_index(collection_name="triton-demo"):
         print(f"Error during query: {str(e)}")
 
 
-async def perform_embedding_only(collection_name="triton-demo", text="This is a test text for embedding only."):
+async def perform_embedding_only(configuration_name="triton-demo", text="This is a test text for embedding only."):
     """Perform embedding only using the configured embedding service"""
     print("\n=== Performing embedding only ===")
     
@@ -86,9 +86,9 @@ async def perform_embedding_only(collection_name="triton-demo", text="This is a 
     rag_service = RAGService()
     
     # Get existing configuration
-    config = rag_service.get_configuration(collection_name)
+    config = rag_service.get_configuration(configuration_name)
     if not config:
-        print(f"Error: Collection '{collection_name}' not found")
+        print(f"Error: Configuration '{configuration_name}' not found")
         return
     
     # Initialize embedding service with the collection's configuration
@@ -114,7 +114,7 @@ async def main():
     
     # Configure the RAG system to use Triton for embeddings and generation
     config = RAGConfig(
-        collection_name="triton-demo",
+        configuration_name="triton-demo",
         chunking=ChunkingConfig(
             strategy=ChunkingStrategy.RECURSIVE_TEXT,
             chunk_size=1000,
@@ -159,7 +159,7 @@ async def main():
         await rag_service.upload_document(
             file_path=test_file_path,
             filename="triton_info.txt",
-            collection_name="triton-demo",
+            configuration_name="triton-demo",
             metadata={"source": "test"},
             process_immediately=True
         )
@@ -168,7 +168,7 @@ async def main():
         test_query = "What is Triton Inference Server used for?"
         
         print(f"\nQuerying: '{test_query}'")
-        response = await rag_service.query(test_query, collection_name="triton-demo")
+        response = await rag_service.query(test_query, configuration_name="triton-demo")
         
         print("\n=== Response ===")
         print(f"Query: {response.query}")
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Triton Inference Server RAG Example")
     parser.add_argument("--test-existing", action="store_true", help="Test with existing FAISS index")
     parser.add_argument("--embed-only", action="store_true", help="Perform embedding only")
-    parser.add_argument("--collection", type=str, default="triton-demo", help="Collection name to use")
+    parser.add_argument("--configuration", type=str, default="triton-demo", help="Configuration name to use")
     parser.add_argument("--text", type=str, default="This is a test text for embedding only.", 
                         help="Text to embed when using --embed-only")
     

@@ -80,13 +80,13 @@ class TestDocumentProcessor:
             document = processor.process_document(
                 temp_file, 
                 "test.txt", 
-                "test_collection", 
+                "test_configuration", 
                 config,
                 {"author": "test"}
             )
             
             assert document.filename == "test.txt"
-            assert document.collection_name == "test_collection"
+            assert document.configuration_name == "test_configuration"
             assert document.content == "This is a test document for processing."
             assert document.metadata["author"] == "test"
             assert document.file_type == "txt"

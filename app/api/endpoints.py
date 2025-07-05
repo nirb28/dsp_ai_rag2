@@ -8,7 +8,7 @@ import logging
 from app.models import (
     DocumentUploadResponse, QueryRequest, QueryResponse, 
     ConfigurationRequest, ConfigurationResponse, HealthResponse,
-    ErrorResponse, CollectionsResponse, CollectionInfo,
+    ErrorResponse, ConfigurationsResponse, ConfigurationInfo,
     RetrieveRequest, RetrieveResponse
 )
 from app.config import RAGConfig, settings
@@ -57,7 +57,7 @@ async def health_check():
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
-    collection_name: str = Form(default="default"),
+    configuration_name: str = Form(default="default"),
     metadata: Optional[str] = Form(default=None),
     process_immediately: bool = Form(default=True)
 ):
@@ -98,7 +98,7 @@ async def upload_document(
             document = await rag_service.upload_document(
                 file_path=temp_file_path,
                 filename=file.filename,
-                collection_name=collection_name,
+                configuration_name=configuration_name,
                 metadata=doc_metadata,
                 process_immediately=process_immediately
             )
@@ -107,8 +107,8 @@ async def upload_document(
                 document_id=document.id,
                 filename=document.filename,
                 status=document.status,
-                collection_name=collection_name,
-                message=f"Document uploaded successfully to collection '{collection_name}'"
+                configuration_name=configuration_name,
+                message=f"Document uploaded successfully to configuration '{configuration_name}'"
             )
             
         finally:
@@ -123,20 +123,20 @@ async def upload_document(
 
 @router.post("/query", response_model=QueryResponse)
 async def query_documents(request: QueryRequest):
-    """Query documents in a collection.
+    """Query documents in a configuration.
     
-    Uses reranking if configured for the collection.
+    Uses reranking if configured for the configuration.
     """
     try:
         # Check if reranking and context injection are enabled for this collection
-        config = rag_service.get_configuration(request.collection_name)
+        config = rag_service.get_configuration(request.configuration_name)
         reranking_enabled = hasattr(config, 'reranking') and config.reranking and config.reranking.enabled
         context_enabled = hasattr(config, 'context_injection') and config.context_injection and config.context_injection.enabled
         
         if context_enabled:
-            logger.info(f"Context injection enabled for collection '{request.collection_name}'")
+            logger.info(f"Context injection enabled for configuration '{request.configuration_name}'")
         if reranking_enabled:
-            logger.info(f"Reranking enabled for collection '{request.collection_name}' using model: {config.reranking.model}")
+            logger.info(f"Reranking enabled for configuration '{request.configuration_name}' using model: {config.reranking.model}")
         
         # Convert context items to list of dictionaries if provided
         context_items = None
@@ -146,10 +146,10 @@ async def query_documents(request: QueryRequest):
         
         response = await rag_service.query(
             query=request.query,
-            collection_name=request.collection_name,
+            configuration_name=request.configuration_name,
             k=request.k,
             similarity_threshold=request.similarity_threshold,
-            context_items=context_items
+            context_items=request.context_items
         )
         
         # Filter metadata if requested
@@ -163,52 +163,52 @@ async def query_documents(request: QueryRequest):
         logger.error(f"Error processing query: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.post("/configure", response_model=ConfigurationResponse)
-async def configure_collection(request: ConfigurationRequest):
-    """Configure a collection with custom settings."""
+@router.post("/configurations", response_model=ConfigurationResponse)
+async def add_configuration(request: ConfigurationRequest):
+    """Add or update a configuration with custom settings."""
     try:
         # Validate and create RAG config
         config = RAGConfig(**request.config)
-        config.collection_name = request.collection_name
+        config.configuration_name = request.configuration_name
         
         # Set configuration
-        success = rag_service.set_configuration(request.collection_name, config)
+        success = rag_service.set_configuration(request.configuration_name, config)
         
         if success:
             return ConfigurationResponse(
-                collection_name=request.collection_name,
+                configuration_name=request.configuration_name,
                 config=config.dict(),
-                message=f"Configuration updated for collection '{request.collection_name}'"
+                message=f"Configuration '{request.configuration_name}' created/updated successfully"
             )
         else:
             raise HTTPException(status_code=500, detail="Failed to update configuration")
             
     except Exception as e:
-        logger.error(f"Error configuring collection: {str(e)}")
+        logger.error(f"Error creating/updating configuration: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Configuration error: {str(e)}")
 
-@router.get("/configure/{collection_name}")
-async def get_configuration(collection_name: str):
-    """Get configuration for a collection."""
+@router.get("/configurations/{configuration_name}")
+async def get_configuration(configuration_name: str):
+    """Get a specific configuration."""
     try:
-        config = rag_service.get_configuration(collection_name)
+        config = rag_service.get_configuration(configuration_name)
         return {
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "config": config.dict()
         }
     except Exception as e:
         logger.error(f"Error getting configuration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.get("/collections", response_model=CollectionsResponse)
-async def list_collections():
-    """List all collections and their information."""
+@router.get("/configurations", response_model=ConfigurationsResponse)
+async def list_configurations():
+    """List all configurations and their information."""
     try:
-        collections_data = rag_service.get_collections()
+        configurations_data = rag_service.get_collections()
         
-        collections = []
-        for data in collections_data:
-            collections.append(CollectionInfo(
+        configurations = []
+        for data in configurations_data:
+            configurations.append(ConfigurationInfo(
                 name=data['name'],
                 document_count=data['document_count'],
                 created_at=data.get('created_at'),
@@ -216,43 +216,42 @@ async def list_collections():
                 config=data['config']
             ))
         
-        return CollectionsResponse(
-            collections=collections,
-            total_count=len(collections)
+        return ConfigurationsResponse(
+            configurations=configurations,
+            total_count=len(configurations)
         )
         
     except Exception as e:
-        logger.error(f"Error listing collections: {str(e)}")
+        logger.error(f"Error listing configurations: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.delete("/collections/{collection_name}")
-async def delete_collection(collection_name: str):
-    """Delete a collection."""
+@router.delete("/configurations/{configuration_name}")
+async def delete_configuration(configuration_name: str):
+    """Delete a configuration."""
     try:
-        success = rag_service.delete_collection(collection_name)
-        
+        success = rag_service.delete_configuration(configuration_name)
         if success:
-            return {"message": f"Collection '{collection_name}' deleted successfully"}
+            return {"message": f"Configuration '{configuration_name}' deleted successfully"}
         else:
-            raise HTTPException(status_code=404, detail=f"Collection '{collection_name}' not found")
+            raise HTTPException(status_code=404, detail=f"Configuration '{configuration_name}' not found")
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting collection: {str(e)}")
+        logger.error(f"Error deleting configuration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # Preset functionality has been removed
 
-@router.get("/configurations")
-async def list_all_configurations():
-    """List all configurations across all collections."""
+@router.get("/configurations/raw")
+async def list_all_configuration_details():
+    """List all configuration details in raw format."""
     try:
         # Get all configurations from the RAG service
         configurations = {}
         
-        for collection_name, config in rag_service.configurations.items():
-            configurations[collection_name] = config.dict()
+        for configuration_name, config in rag_service.configurations.items():
+            configurations[configuration_name] = config.dict()
         
         return {
             "configurations": configurations,
@@ -260,38 +259,38 @@ async def list_all_configurations():
         }
         
     except Exception as e:
-        logger.error(f"Error listing configurations: {str(e)}")
+        logger.error(f"Error listing configuration details: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.get("/debug/{collection_name}")
-async def debug_collection(collection_name: str, limit: int = 10, show_vectors: bool = False):
-    """Debug endpoint to inspect the vectors and chunks in a collection.
+@router.get("/debug/{configuration_name}")
+async def debug_configuration(configuration_name: str, limit: int = 10, show_vectors: bool = False):
+    """Debug endpoint to inspect the vectors and chunks in a configuration.
     
     Args:
-        collection_name: Name of the collection to inspect
+        configuration_name: Name of the configuration to inspect
         limit: Maximum number of chunks to return
         show_vectors: Whether to include embedding vectors in the response
         
     Returns:
-        Dictionary containing chunks and their metadata from the collection
+        Dictionary containing chunks and their metadata from the configuration
     """
     try:
-        # Check if collection exists
-        if collection_name not in rag_service.configurations:
-            raise HTTPException(status_code=404, detail=f"Collection '{collection_name}' not found")
+        # Check if configuration exists
+        if configuration_name not in rag_service.configurations:
+            raise HTTPException(status_code=404, detail=f"Configuration '{configuration_name}' not found")
         
-        # Get vector store
-        vector_store = rag_service._get_vector_store(collection_name)
+        # Get the vector store for this configuration
+        vector_store = rag_service._get_vector_store(configuration_name)
         
         # Get document count
         document_count = vector_store.get_document_count()
         
         if document_count == 0:
             return {
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "chunks": [],
                 "total_count": 0,
-                "message": "Collection is empty. No chunks found."
+                "message": "Configuration is empty. No chunks found."
             }
         
         # Get sample chunks
@@ -331,25 +330,25 @@ async def debug_collection(collection_name: str, limit: int = 10, show_vectors: 
             chunks_data.append(chunk_data)
         
         return {
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "chunks": chunks_data,
             "total_count": document_count,
             "shown_count": len(chunks_data),
             "has_embeddings": vectors is not None,
             "embedding_dimensions": vector_dimensions,
-            "config": rag_service.configurations[collection_name].dict()
+            "config": rag_service.configurations[configuration_name].dict()
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error debugging collection: {str(e)}")
+        logger.error(f"Error debugging configuration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @router.post("/retrieve", response_model=RetrieveResponse)
 async def retrieve_documents(request: RetrieveRequest):
-    """Retrieve relevant documents from a collection without generating a response.
+    """Retrieve relevant documents from a configuration without generating a response.
     
     This endpoint allows direct access to the vector retrieval functionality without LLM generation.
     It's useful for debugging, testing, or when only the context documents are needed.
@@ -362,20 +361,20 @@ async def retrieve_documents(request: RetrieveRequest):
     """
     try:
         start_time = time.time()
-        collection_name = request.collection_name
+        configuration_name = request.configuration_name
         
-        # Validate collection exists
-        if not rag_service.vector_store_manager.collection_exists(collection_name):
+        # Validate configuration exists
+        if not rag_service.vector_store_manager.collection_exists(configuration_name):
             raise HTTPException(
                 status_code=404, 
-                detail=f"Collection '{collection_name}' not found"
+                detail=f"Configuration '{configuration_name}' not found"
             )
         
-        # Get the vector store for this collection
-        vector_store = rag_service._get_vector_store(collection_name)
+        # Get the vector store for this configuration
+        vector_store = rag_service._get_vector_store(configuration_name)
         
         # Get configuration, with optional overrides from the request
-        config = rag_service.get_configuration(collection_name)
+        config = rag_service.get_configuration(configuration_name)
         temp_config = None
         
         if request.config:
@@ -389,13 +388,13 @@ async def retrieve_documents(request: RetrieveRequest):
             except Exception as e:
                 logger.warning(f"Invalid config override: {str(e)}")
         
-        # Get embedding service for this collection
-        embedding_service = rag_service._get_embedding_service(collection_name)
+        # Get embeddings service for this configuration
+        embedding_service = rag_service._get_embedding_service(configuration_name)
         
         # Get reranker service if needed
         reranker_service = None
         if request.use_reranking:
-            reranker_service = rag_service._get_reranker_service(collection_name)
+            reranker_service = rag_service._get_reranker_service(configuration_name)
         
         # Get query parameters
         k = request.k
@@ -445,7 +444,7 @@ async def retrieve_documents(request: RetrieveRequest):
             query=request.query,
             documents=documents,
             processing_time=processing_time,
-            collection_name=collection_name,
+            configuration_name=configuration_name,
             total_found=len(documents)
         )
     

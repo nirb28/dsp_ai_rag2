@@ -384,15 +384,15 @@ class VectorStoreManager:
     def __init__(self):
         self.stores: Dict[str, Any] = {}  # Changed to Any to support multiple vector store types
 
-    def get_store(self, collection_name: str, config: VectorStoreConfig, embedding_service: EmbeddingService) -> Any:
-        """Get or create a vector store for a collection."""
-        if collection_name not in self.stores:
-            # Create collection-specific config with updated paths for collection
+    def get_vector_store(self, configuration_name: str, config: VectorStoreConfig, embedding_config: dict) -> Any:
+        """Get or create a vector store for a configuration."""
+        if configuration_name not in self.stores:
+            # Create configuration-specific config with updated paths for configuration
             if config.type == VectorStore.FAISS:
-                # For FAISS, we need to update the index path for the specific collection
-                collection_config = VectorStoreConfig(
+                # For FAISS, we need to update the index path for the specific configuration
+                configuration_config = VectorStoreConfig(
                     type=config.type,
-                    index_path=f"{config.index_path}/{collection_name}",
+                    index_path=f"{config.index_path}/{configuration_name}",
                     dimension=config.dimension,
                     # Include Redis settings to avoid validation errors
                     redis_host=config.redis_host,
@@ -400,43 +400,49 @@ class VectorStoreManager:
                     redis_password=config.redis_password,
                     redis_index_name=config.redis_index_name
                 )
-                self.stores[collection_name] = FAISSVectorStore(collection_config, embedding_service)
+                embedding_service = EmbeddingService(embedding_config)
+                self.stores[configuration_name] = FAISSVectorStore(configuration_config, embedding_service)
                 
             elif config.type == VectorStore.REDIS:
-                # For Redis, use collection name as part of index name
-                collection_config = VectorStoreConfig(
+                # For Redis, use configuration name as part of index name
+                configuration_config = VectorStoreConfig(
                     type=config.type,
                     index_path=config.index_path,  # Not needed for Redis but keep for consistency
                     dimension=config.dimension,
                     redis_host=config.redis_host,
                     redis_port=config.redis_port,
                     redis_password=config.redis_password,
-                    # Use collection name in the index name
-                    redis_index_name=f"{config.redis_index_name}-{collection_name}"
+                    # Use configuration name in the index name
+                    redis_index_name=f"{config.redis_index_name}-{configuration_name}"
                 )
-                self.stores[collection_name] = RedisVectorStore(collection_config, embedding_service)
+                embedding_service = EmbeddingService(embedding_config)
+                self.stores[configuration_name] = RedisVectorStore(configuration_config, embedding_service)
             else:
                 raise ValueError(f"Unsupported vector store type: {config.type}")
                 
-            logger.info(f"Created new vector store of type {config.type} for collection {collection_name}")
+            logger.info(f"Created new vector store of type {config.type} for configuration {configuration_name}")
         
-        return self.stores[collection_name]
+        return self.stores[configuration_name]
 
-    def list_collections(self) -> List[str]:
-        """List all available collections."""
+    def list_configurations(self) -> List[str]:
+        """List all available configurations."""
         return list(self.stores.keys())
 
-    def delete_collection(self, collection_name: str) -> bool:
-        """Delete a collection."""
-        if collection_name in self.stores:
+    def configuration_exists(self, configuration_name: str) -> bool:
+        """Check if a configuration exists."""
+        return configuration_name in self.stores
+
+    def delete_configuration(self, configuration_name: str) -> bool:
+        """Delete a configuration."""
+        if configuration_name in self.stores:
             # Get the store instance before removing it
-            store = self.stores[collection_name]
+            store = self.stores[configuration_name]
             
             # For Redis, we might want to clean up the index
             if isinstance(store, RedisVectorStore):
                 # Optionally implement index cleanup if needed
                 pass
                 
-            del self.stores[collection_name]
+            del self.stores[configuration_name]
             return True
         return False

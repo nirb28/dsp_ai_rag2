@@ -17,12 +17,13 @@ class Document(BaseModel):
     status: DocumentStatus = DocumentStatus.UPLOADED
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
-    collection_name: str
+    configuration_name: str
     file_size: int
     file_type: str
+    error: Optional[str] = None
 
 class DocumentUploadRequest(BaseModel):
-    collection_name: str = "default"
+    configuration_name: str = "default"
     metadata: Optional[Dict[str, Any]] = None
     process_immediately: bool = True
 
@@ -31,7 +32,7 @@ class DocumentUploadResponse(BaseModel):
     filename: str
     status: DocumentStatus
     message: str
-    collection_name: str
+    configuration_name: str
 
 class ContextItem(BaseModel):
     """A single context item for context injection."""
@@ -42,7 +43,7 @@ class ContextItem(BaseModel):
 
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000)
-    collection_name: str = "default"
+    configuration_name: str = "default"
     k: Optional[int] = Field(default=5, ge=1, le=20)
     similarity_threshold: Optional[float] = Field(default=0.7, ge=0.0, le=1.0)
     include_metadata: bool = True
@@ -53,14 +54,14 @@ class QueryResponse(BaseModel):
     answer: str
     sources: List[Dict[str, Any]]
     processing_time: float
-    collection_name: str
+    configuration_name: str
 
 class ConfigurationRequest(BaseModel):
     config: Dict[str, Any]
-    collection_name: str = "default"
+    configuration_name: str = "default"
 
 class ConfigurationResponse(BaseModel):
-    collection_name: str
+    configuration_name: str
     config: Dict[str, Any]
     message: str
 
@@ -75,20 +76,20 @@ class ErrorResponse(BaseModel):
     detail: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.now)
 
-class CollectionInfo(BaseModel):
+class ConfigurationInfo(BaseModel):
     name: str
     document_count: int
     created_at: Optional[datetime] = None
     last_updated: Optional[datetime] = None
     config: Dict[str, Any]
 
-class CollectionsResponse(BaseModel):
-    collections: List[CollectionInfo]
+class ConfigurationsResponse(BaseModel):
+    configurations: List[ConfigurationInfo]
     total_count: int
 
 class RetrieveRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000)
-    collection_name: str = "default"
+    configuration_name: str = "default"
     k: int = Field(default=5, ge=1, le=50)
     similarity_threshold: Optional[float] = Field(default=0.0, ge=0.0, le=1.0)
     include_metadata: bool = True
@@ -100,5 +101,5 @@ class RetrieveResponse(BaseModel):
     query: str
     documents: List[Dict[str, Any]]
     processing_time: float
-    collection_name: str
+    configuration_name: str
     total_found: int

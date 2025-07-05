@@ -80,8 +80,8 @@ def main():
     
     try:
         # Test 1: Configure a collection
-        print_header("TEST 1: CONFIGURING COLLECTION")
-        collection_name = "test_collection"
+        print_header("TEST 1: CONFIGURING CONFIGURATION")
+        configuration_name = "test_collection"
         
         config = {
             "chunking": {
@@ -97,11 +97,11 @@ def main():
             }
         }
         
-        print(f"Configuring collection '{collection_name}'...")
+        print(f"Configuring configuration '{configuration_name}'...")
         config_response = client.post(
-            "/api/v1/configure",
+            "/api/v1/configurations",
             json={
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "config": config
             }
         )
@@ -116,13 +116,13 @@ def main():
         # Test 2: Upload document
         print_header("TEST 2: UPLOADING DOCUMENT")
         
-        print(f"Uploading document to collection '{collection_name}'...")
+        print(f"Uploading document to configuration '{configuration_name}'...")
         with open(test_file_path, 'rb') as f:
             upload_response = client.post(
                 "/api/v1/upload",
                 files={"file": (Path(test_file_path).name, f, "text/plain")},
                 data={
-                    "collection_name": collection_name,
+                    "configuration_name": configuration_name,
                     "process_immediately": "true",
                     "metadata": json.dumps({
                         "source": "test_script",
@@ -142,34 +142,34 @@ def main():
         print("Waiting for document processing...")
         time.sleep(2)
         
-        # Test 3: Check if collection name is correctly preserved (addressing the override issue)
-        print_header("TEST 3: CHECKING COLLECTION NAME PRESERVATION")
+        # Test 3: Check if configuration name is correctly preserved (addressing the override issue)
+        print_header("TEST 3: CHECKING CONFIGURATION NAME PRESERVATION")
         
-        collections_response = client.get("/api/v1/collections")
-        collections_data = collections_response.json()
+        configurations_response = client.get("/api/v1/configurations")
+        configurations_data = configurations_response.json()
         
-        print(f"Collections: {json.dumps(collections_data, indent=2, cls=DateTimeEncoder)}")
+        print(f"Configurations: {json.dumps(configurations_data, indent=2, cls=DateTimeEncoder)}")
         
         # Debug the collections response
-        print(f"Collections response: {collections_data}")
+        print(f"Configurations response: {configurations_data}")
         
-        # Check if our specific collection name exists
-        collection_exists = any(c["name"] == collection_name for c in collections_data.get("collections", []))
+        # Check if our specific configuration name exists
+        configuration_exists = any(c["name"] == configuration_name for c in configurations_data.get("configurations", []))
         
-        if collection_exists:
-            print(f"✅ Collection '{collection_name}' exists - Collection name preserved correctly")
+        if configuration_exists:
+            print(f"✅ Configuration '{configuration_name}' exists - Configuration name preserved correctly")
         else:
-            print(f"❌ Collection '{collection_name}' not found - Issue with collection naming")
+            print(f"❌ Configuration '{configuration_name}' not found - Issue with configuration naming")
         
         # Test 4: Query documents
         print_header("TEST 4: QUERYING DOCUMENTS")
         
-        print(f"Querying collection '{collection_name}'...")
+        print(f"Querying configuration '{configuration_name}'...")
         query_response = client.post(
             "/api/v1/query",
             json={
                 "query": "What is machine learning?",
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "k": 3,
                 "include_metadata": True
             }
@@ -182,11 +182,11 @@ def main():
         print_header("TEST 5: APPLYING PRESET CONFIGURATION")
         
         preset_name = "fast_processing"
-        new_collection = "preset_collection"
+        new_configuration = "preset_collection"
         
-        print(f"Applying preset '{preset_name}' to collection '{new_collection}'...")
+        print(f"Applying preset '{preset_name}' to configuration '{new_configuration}'...")
         preset_response = client.post(
-            f"/api/v1/configure/preset/{preset_name}?collection_name={new_collection}"
+            f"/api/v1/configurations/preset/{preset_name}?configuration_name={new_configuration}"
         )
         
         print(f"Status code: {preset_response.status_code}")
@@ -196,9 +196,9 @@ def main():
         print_header("TESTS COMPLETED")
         print("\nSummary of tests:")
         print("✅ Health check")
-        print("✅ Collection configuration")
+        print("✅ Configuration configuration")
         print("✅ Document upload with metadata")
-        print("✅ Collection name preservation" if collection_exists else "❌ Collection name preservation")
+        print("✅ Configuration name preservation" if configuration_exists else "❌ Configuration name preservation")
         print("✅ Document querying")
         print("✅ Preset application")
         

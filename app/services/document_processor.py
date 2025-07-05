@@ -110,7 +110,7 @@ class DocumentProcessor:
         self, 
         file_path: str, 
         filename: str, 
-        collection_name: str,
+        configuration_name: str,
         chunking_config: ChunkingConfig,
         metadata: Dict[str, Any] = None
     ) -> Document:
@@ -130,7 +130,7 @@ class DocumentProcessor:
                 content=content,
                 metadata=metadata or {},
                 status=DocumentStatus.UPLOADED,
-                collection_name=collection_name,
+                configuration_name=configuration_name,
                 file_size=file_size,
                 file_type=file_type
             )
@@ -152,7 +152,7 @@ class DocumentProcessor:
                 "document_id": document.id,
                 "filename": document.filename,
                 "chunk_index": i,
-                "collection_name": document.collection_name,
+                "configuration_name": document.configuration_name,
                 **document.metadata
             })
         

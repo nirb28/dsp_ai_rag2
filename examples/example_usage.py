@@ -2,7 +2,7 @@
 Example usage of the RAG as a Service API.
 
 This script demonstrates how to:
-1. Set up a collection with custom configuration
+1. Set up a configuration with custom settings
 2. Upload documents
 3. Query the RAG system
 4. Use different configuration presets
@@ -68,14 +68,14 @@ def create_sample_document():
     
     return sample_file
 
-def upload_document(file_path, collection_name="default", metadata=None):
+def upload_document(file_path, configuration_name="default", metadata=None):
     """Upload a document to the RAG system."""
     print(f"📄 Uploading document: {file_path}")
     
     with open(file_path, "rb") as f:
         files = {"file": f}
         data = {
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "process_immediately": True
         }
         
@@ -94,13 +94,13 @@ def upload_document(file_path, collection_name="default", metadata=None):
         print(f"❌ Upload failed: {response.text}")
         return None
 
-def query_documents(query, collection_name="default", k=5):
+def query_documents(query, configuration_name="default", k=5):
     """Query the RAG system."""
     print(f"🔍 Querying: '{query}'")
     
     payload = {
         "query": query,
-        "collection_name": collection_name,
+        "configuration_name": configuration_name,
         "k": k,
         "include_metadata": True
     }
@@ -124,12 +124,12 @@ def query_documents(query, collection_name="default", k=5):
         print(f"❌ Query failed: {response.text}")
         return None
 
-def configure_collection(collection_name, config):
-    """Configure a collection with custom settings."""
-    print(f"⚙️ Configuring collection: {collection_name}")
+def configure_configuration(configuration_name, config):
+    """Configure a configuration with custom settings."""
+    print(f"⚙️ Configuring configuration: {configuration_name}")
     
     payload = {
-        "collection_name": collection_name,
+        "configuration_name": configuration_name,
         "config": config
     }
     
@@ -143,11 +143,11 @@ def configure_collection(collection_name, config):
         print(f"❌ Configuration failed: {response.text}")
         return None
 
-def apply_preset(preset_name, collection_name):
+def apply_preset(preset_name, configuration_name):
     """Apply a configuration preset."""
-    print(f"🎛️ Applying preset '{preset_name}' to collection '{collection_name}'")
+    print(f"🎛️ Applying preset '{preset_name}' to configuration '{configuration_name}'")
     
-    response = requests.post(f"{BASE_URL}/configure/preset/{preset_name}?collection_name={collection_name}")
+    response = requests.post(f"{BASE_URL}/configure/preset/{preset_name}?configuration_name={configuration_name}")
     
     if response.status_code == 200:
         result = response.json()
@@ -157,22 +157,22 @@ def apply_preset(preset_name, collection_name):
         print(f"❌ Preset application failed: {response.text}")
         return None
 
-def list_collections():
-    """List all collections."""
-    print("📋 Listing collections...")
+def list_configurations():
+    """List all configurations."""
+    print("📋 Listing configurations...")
     
-    response = requests.get(f"{BASE_URL}/collections")
+    response = requests.get(f"{BASE_URL}/configurations")
     
     if response.status_code == 200:
         result = response.json()
-        print(f"✅ Found {result['total_count']} collections:")
+        print(f"✅ Found {result['total_count']} configurations:")
         
-        for collection in result['collections']:
-            print(f"   - {collection['name']}: {collection['document_count']} documents")
+        for configuration in result['configurations']:
+            print(f"   - {configuration['name']}: {configuration['document_count']} documents")
         
         return result
     else:
-        print(f"❌ Failed to list collections: {response.text}")
+        print(f"❌ Failed to list configurations: {response.text}")
         return None
 
 def get_presets():
@@ -213,7 +213,7 @@ def main():
         # Upload document
         upload_result = upload_document(
             sample_file, 
-            collection_name="basic_example",
+            configuration_name="basic_example",
             metadata={"topic": "AI/ML", "author": "Example"}
         )
         
@@ -234,14 +234,14 @@ def main():
         get_presets()
         
         # Apply fast processing preset
-        apply_preset("fast_processing", "fast_collection")
+        apply_preset("fast_processing", "fast_configuration")
         
-        # Upload document to fast collection
-        upload_document(sample_file, "fast_collection")
+        # Upload document to fast configuration
+        upload_document(sample_file, "fast_configuration")
         time.sleep(2)
         
         # Query with fast configuration
-        query_documents("Explain deep learning", "fast_collection")
+        query_documents("Explain deep learning", "fast_configuration")
         
         # Example 3: Custom configuration
         print("\n" + "="*50)
@@ -269,22 +269,22 @@ def main():
         }
         
         # Apply custom configuration
-        configure_collection("custom_collection", custom_config)
+        configure_configuration("custom_configuration", custom_config)
         
         # Upload document with custom config
-        upload_document(sample_file, "custom_collection")
+        upload_document(sample_file, "custom_configuration")
         time.sleep(2)
         
         # Query with custom configuration
-        query_documents("What is natural language processing?", "custom_collection")
+        query_documents("What is natural language processing?", "custom_configuration")
         
-        # Example 4: Collection management
+        # Example 4: Configuration management
         print("\n" + "="*50)
-        print("Example 4: Collection Management")
+        print("Example 4: Configuration Management")
         print("="*50)
         
-        # List all collections
-        list_collections()
+        # List all configurations
+        list_configurations()
         
         print("\n✅ All examples completed successfully!")
         

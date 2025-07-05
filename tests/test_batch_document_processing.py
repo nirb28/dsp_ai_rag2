@@ -111,14 +111,14 @@ def get_mime_type(file_extension):
     return mime_types.get(file_extension, 'application/octet-stream')
 
 
-def process_documents_in_folder(client, folder_name, collection_name):
+def process_documents_in_folder(client, folder_name, configuration_name):
     """
     Process all documents in a folder and index them in the RAG system.
     
     Args:
         client: FastAPI test client
         folder_name: Name of the folder under sample-docs
-        collection_name: Name for the collection to create
+        configuration_name: Name for the configuration to create
     
     Returns:
         dict: Summary of processing results
@@ -159,7 +159,7 @@ def process_documents_in_folder(client, folder_name, collection_name):
                     "/api/v1/upload",
                     files={"file": (file_path.name, f, mime_type)},
                     data={
-                        "collection_name": collection_name,
+                        "configuration_name": configuration_name,
                         "metadata": json.dumps({
                             "source": folder_name, 
                             "filename": file_path.name,
@@ -202,13 +202,13 @@ def process_documents_in_folder(client, folder_name, collection_name):
     return results
 
 
-def run_queries(client, collection_name, queries):
+def run_queries(client, configuration_name, queries):
     """
-    Run a list of queries against the collection and return results.
+    Run a list of queries against the configuration and return results.
     
     Args:
         client: FastAPI test client
-        collection_name: Name of the collection to query
+        configuration_name: Name of the configuration to query
         queries: List of query strings
         
     Returns:
@@ -223,7 +223,7 @@ def run_queries(client, collection_name, queries):
             "/api/v1/query",
             json={
                 "query": query,
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "include_metadata": True,
                 "similarity_threshold": 0.5,  # Lower threshold to include more potential matches
                 "max_sources": 5,  # Include more sources in response
@@ -272,19 +272,19 @@ def run_queries(client, collection_name, queries):
 def test_batch_document_processing(client, temp_storage, batch_config, folder_name="401k"):
     """Test batch processing of documents from a folder."""
     # 1. Configure a collection
-    collection_name = f"batch_{folder_name}_test"
+    configuration_name = f"batch_{folder_name}_test"
     
     config_response = client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "config": batch_config
         }
     )
     assert config_response.status_code == 200
     
     # 2. Process all documents in the folder
-    processing_results = process_documents_in_folder(client, folder_name, collection_name)
+    processing_results = process_documents_in_folder(client, folder_name, configuration_name)
     assert processing_results["processed_files"] > 0
     
     # 3. Wait for indexing to complete
@@ -292,14 +292,14 @@ def test_batch_document_processing(client, temp_storage, batch_config, folder_na
     time.sleep(2)
     
     # 4. Check collection info
-    collections_response = client.get("/api/v1/collections")
-    assert collections_response.status_code == 200
+    configurations_response = client.get("/api/v1/configurations")
+    assert configurations_response.status_code == 200
     
-    collections_data = collections_response.json()
-    collection_info = next((c for c in collections_data["collections"] if c["name"] == collection_name), None)
+    configurations_data = configurations_response.json()
+    configuration_info = next((c for c in configurations_data["configurations"] if c["name"] == configuration_name), None)
     
-    assert collection_info is not None
-    print(f"\nCollection '{collection_name}' contains {collection_info.get('document_count', 0)} chunks")
+    assert configuration_info is not None
+    print(f"\nConfiguration '{configuration_name}' contains {configuration_info.get('document_count', 0)} chunks")
     
     # 5. Run sample queries
     queries = [
@@ -309,12 +309,12 @@ def test_batch_document_processing(client, temp_storage, batch_config, folder_na
         "How can employers set up a 401k plan?"
     ]
     
-    query_results = run_queries(client, collection_name, queries)
+    query_results = run_queries(client, configuration_name, queries)
     
     # 6. Clean up
-    delete_response = client.delete(f"/api/v1/collections/{collection_name}")
+    delete_response = client.delete(f"/api/v1/configurations/{configuration_name}")
     assert delete_response.status_code == 200
-    print(f"\nCollection '{collection_name}' deleted")
+    print(f"\nConfiguration '{configuration_name}' deleted")
     
     return {
         "processing_results": processing_results,
@@ -366,30 +366,30 @@ if __name__ == "__main__":
                 },                
             }
             
-            collection_name = f"batch_{args.folder}_test"
+            configuration_name = f"batch_{args.folder}_test"
             
             # Configure collection
-            client.post("/api/v1/configure", json={"collection_name": collection_name, "config": config})
+            client.post("/api/v1/configurations", json={"configuration_name": configuration_name, "config": config})
             
             # Process documents
-            process_documents_in_folder(client, args.folder, collection_name)
+            process_documents_in_folder(client, args.folder, configuration_name)
             
             # Wait for indexing
             time.sleep(2)
             
             # Run queries if specified
             if args.query:
-                run_queries(client, collection_name, args.query)
+                run_queries(client, configuration_name, args.query)
             else:
                 # Run default queries for 401k
                 default_queries = [
                     "What are 401k plans?",
                     "What are the benefits of 401k plans for small businesses?"
                 ]
-                run_queries(client, collection_name, default_queries)
+                run_queries(client, configuration_name, default_queries)
             
             # Clean up
-            client.delete(f"/api/v1/collections/{collection_name}")
+            client.delete(f"/api/v1/configurations/{configuration_name}")
     else:
         # Environment variable already set, just run the test
         config = {
@@ -412,27 +412,27 @@ if __name__ == "__main__":
             }
         }
         
-        collection_name = f"batch_{args.folder}_test"
+        configuration_name = f"batch_{args.folder}_test"
         
         # Configure collection
-        client.post("/api/v1/configure", json={"collection_name": collection_name, "config": config})
+        client.post("/api/v1/configurations", json={"configuration_name": configuration_name, "config": config})
         
         # Process documents
-        process_documents_in_folder(client, args.folder, collection_name)
+        process_documents_in_folder(client, args.folder, configuration_name)
         
         # Wait for indexing
         time.sleep(2)
         
         # Run queries if specified
         if args.query:
-            run_queries(client, collection_name, args.query)
+            run_queries(client, configuration_name, args.query)
         else:
             # Run default queries for 401k
             default_queries = [
                 "What are 401k plans?",
                 "What are the benefits of 401k plans for small businesses?"
             ]
-            run_queries(client, collection_name, default_queries)
+            run_queries(client, configuration_name, default_queries)
         
         # Clean up
-        client.delete(f"/api/v1/collections/{collection_name}")
+        client.delete(f"/api/v1/configurations/{configuration_name}")

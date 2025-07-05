@@ -212,12 +212,12 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
     4. Verifies generation parameters affect the response
     """
     # 1. Configure a collection with enhanced settings
-    collection_name = "pdf_test_collection"
+    configuration_name = "pdf_test_collection"
     
     config_response = client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "config": enhanced_config_for_testing
         }
     )
@@ -229,7 +229,7 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
             "/api/v1/upload",
             files={"file": (Path(sample_pdf_file_ai).name, f, "application/pdf")},
             data={
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "metadata": json.dumps({"topic": "artificial intelligence", "source": "test_document"}),
                 "process_immediately": "true"
             }
@@ -238,7 +238,7 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
     assert upload_response_ai.status_code == 200
     upload_data_ai = upload_response_ai.json()
     assert upload_data_ai["status"] == "indexed"
-    assert upload_data_ai["collection_name"] == collection_name
+    assert upload_data_ai["configuration_name"] == configuration_name
     
     # 3. Upload the second PDF document about Machine Learning
     with open(sample_pdf_file_ml, 'rb') as f:
@@ -246,7 +246,7 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
             "/api/v1/upload",
             files={"file": (Path(sample_pdf_file_ml).name, f, "application/pdf")},
             data={
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "metadata": json.dumps({"topic": "machine learning", "source": "test_document"}),
                 "process_immediately": "true"
             }
@@ -262,7 +262,7 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
             "/api/v1/upload",
             files={"file": (Path(sample_pdf_file_nlp).name, f, "application/pdf")},
             data={
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "metadata": json.dumps({"topic": "natural language processing", "source": "test_document"}),
                 "process_immediately": "true"
             }
@@ -282,23 +282,23 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
         extracted_text = processor.extract_text(sample_pdf_file_ai)
         print(f"\nExtracted text from AI PDF:\n{extracted_text[:200]}...")
     
-    # 6. Check the collection info to verify all 3 PDFs were processed
-    collections_response = client.get("/api/v1/collections")
-    assert collections_response.status_code == 200
+    # 6. Check the configuration info to verify all 3 PDFs were processed
+    configurations_response = client.get("/api/v1/configurations")
+    assert configurations_response.status_code == 200
     
-    collections_data = collections_response.json()
-    collection_info = next((c for c in collections_data["collections"] if c["name"] == collection_name), None)
+    configurations_data = configurations_response.json()
+    configuration_info = next((c for c in configurations_data["configurations"] if c["name"] == configuration_name), None)
     
-    assert collection_info is not None
+    assert configuration_info is not None
     # We should have some documents (exact count may vary due to chunking)
-    assert collection_info["document_count"] > 0
+    assert configuration_info["document_count"] > 0
     
     # 7. Test a query about artificial intelligence
     query_response_ai = client.post(
         "/api/v1/query",
         json={
             "query": "Artificial Intelligence refers to computer systems designed to perform tasks",  # Match exact text from PDF
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "include_metadata": True,
             "similarity_threshold": 0.3  # Lower threshold to include more matching documents
         }
@@ -316,7 +316,7 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
         "/api/v1/query",
         json={
             "query": "Machine Learning allows computer systems to learn from data",  # Match exact text from PDF
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "include_metadata": True,
             "similarity_threshold": 0.3  # Lower threshold to include more matching documents
         }
@@ -340,9 +340,9 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
     }
     
     config_response = client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "config": high_temp_config
         }
     )
@@ -353,7 +353,7 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
         "/api/v1/query",
         json={
             "query": "Natural Language Processing is focused on interactions between human language",  # Match exact text from PDF
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "include_metadata": True,
             "similarity_threshold": 0.3  # Lower threshold to include more matching documents
         }
@@ -374,9 +374,9 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
     }
     
     config_response = client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "config": low_temp_config
         }
     )
@@ -387,7 +387,7 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
         "/api/v1/query",
         json={
             "query": "Natural Language Processing is focused on interactions between human language",  # Match exact text from PDF
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "include_metadata": True,
             "similarity_threshold": 0.3  # Lower threshold to include more matching documents
         }
@@ -405,6 +405,6 @@ def test_pdf_handling_and_generation(client, temp_storage, sample_pdf_file_ai, s
     print("\nLow Temperature (0.1) Answer:")
     print(low_temp_answer)
     
-    # 11. Clean up by deleting the collection
-    delete_response = client.delete(f"/api/v1/collections/{collection_name}")
+    # 11. Clean up by deleting the configuration
+    delete_response = client.delete(f"/api/v1/configurations/{configuration_name}")
     assert delete_response.status_code == 200

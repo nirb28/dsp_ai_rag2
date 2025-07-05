@@ -95,12 +95,12 @@ def config_for_testing():
 def test_full_rag_pipeline(client, temp_storage, sample_text_file, config_for_testing):
     """Test the complete RAG pipeline from configuration to querying."""
     # 1. Configure a collection
-    collection_name = "test_integration"
+    configuration_name = "test_integration"
     
     config_response = client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "config": config_for_testing
         }
     )
@@ -112,7 +112,7 @@ def test_full_rag_pipeline(client, temp_storage, sample_text_file, config_for_te
             "/api/v1/upload",
             files={"file": (Path(sample_text_file).name, f, "text/plain")},
             data={
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "process_immediately": "true",
                 "metadata": json.dumps({
                     "source": "integration_test",
@@ -130,7 +130,7 @@ def test_full_rag_pipeline(client, temp_storage, sample_text_file, config_for_te
         "/api/v1/query",
         json={
             "query": "What is machine learning?",
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "k": 3,
             "similarity_threshold": 0.6,
             "include_metadata": True
@@ -150,32 +150,32 @@ def test_full_rag_pipeline(client, temp_storage, sample_text_file, config_for_te
         assert "metadata" in source
         assert "similarity_score" in source
     
-    # 5. Check that we can list collections and our test collection appears
-    collections_response = client.get("/api/v1/collections")
+    # 5. Check that we can list configurations and our test configuration appears
+    collections_response = client.get("/api/v1/configurations")
     assert collections_response.status_code == 200
     
-    collections_data = collections_response.json()
-    collection_names = [c["name"] for c in collections_data["collections"]]
-    assert collection_name in collection_names
+    configurations_data = collections_response.json()
+    configuration_names = [c["name"] for c in configurations_data["configurations"]]
+    assert configuration_name in configuration_names
     
-    # 6. Clean up by deleting the collection
-    delete_response = client.delete(f"/api/v1/collections/{collection_name}")
+    # 6. Clean up by deleting the configuration
+    delete_response = client.delete(f"/api/v1/configurations/{configuration_name}")
     assert delete_response.status_code == 200
 
 
-def test_collection_name_respected(client, temp_storage, sample_text_file):
-    """Test that the collection name is properly respected in the configuration.
+def test_configuration_name_respected(client, temp_storage, sample_text_file):
+    """Test that the configuration name is properly respected in the configuration.
     
-    This test addresses a reported issue where collection names were being
+    This test addresses a reported issue where configuration names were being
     forcibly overridden to "user_{user_id}" regardless of configuration settings.
     """
-    collection_name = "specific_collection_name"
+    configuration_name = "specific_configuration_name"
     
-    # 1. Configure the collection with a specific name
+    # 1. Configure the configuration with a specific name
     config_response = client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "config": {
                 "chunking": {"strategy": "fixed_size", "chunk_size": 300},
                 "embedding": {
@@ -194,21 +194,21 @@ def test_collection_name_respected(client, temp_storage, sample_text_file):
             "/api/v1/upload",
             files={"file": (Path(sample_text_file).name, f, "text/plain")},
             data={
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "process_immediately": "true"
             }
         )
     
     assert upload_response.status_code == 200
     upload_data = upload_response.json()
-    assert upload_data["collection_name"] == collection_name
+    assert upload_data["configuration_name"] == configuration_name
     
-    # 3. Verify the collection exists with the exact name
-    collections_response = client.get("/api/v1/collections")
-    collections_data = collections_response.json()
+    # 3. Verify the configuration exists with the exact name
+    collections_response = client.get("/api/v1/configurations")
+    configurations_data = collections_response.json()
     
-    assert any(c["name"] == collection_name for c in collections_data["collections"]), \
-        f"Collection '{collection_name}' not found in the list of collections"
+    assert any(c["name"] == configuration_name for c in configurations_data["configurations"]), \
+        f"Configuration '{configuration_name}' not found in the list of configurations"
 
 
 def test_vectorize_now_validation(client, temp_storage, sample_text_file):
@@ -218,13 +218,13 @@ def test_vectorize_now_validation(client, temp_storage, sample_text_file):
     vectorize_now=true because document_type, mime_type, and size_bytes fields
     were missing when creating a Document object.
     """
-    collection_name = "vectorize_validation_test"
+    configuration_name = "vectorize_validation_test"
     
-    # 1. Configure the collection
+    # 1. Configure the configuration
     client.post(
-        "/api/v1/configure",
+        "/api/v1/configurations",
         json={
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "config": {
                 "chunking": {"strategy": "fixed_size", "chunk_size": 200},
                 "embedding": {
@@ -241,7 +241,7 @@ def test_vectorize_now_validation(client, temp_storage, sample_text_file):
             "/api/v1/upload",
             files={"file": (Path(sample_text_file).name, f, "text/plain")},
             data={
-                "collection_name": collection_name,
+                "configuration_name": configuration_name,
                 "process_immediately": "true"
             }
         )

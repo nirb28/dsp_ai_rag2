@@ -23,15 +23,15 @@ BASE_URL = "http://localhost:8000"
 API_PREFIX = "/api/v1"
 
 async def main():
-    collection_name = "rag_enhanced_test"
-    print(f"Testing reranking and context injection with collection: {collection_name}")
+    configuration_name = "rag_enhanced_test"
+    print(f"Testing reranking and context injection with configuration: {configuration_name}")
     
     # Step 1: Apply a configuration preset with features enabled
     print("\n1. Setting up collection with reranking and context injection...")
     try:
         # First, let's check if the collection exists
-        collections = requests.get(f"{BASE_URL}/collections").json()
-        collection_exists = any(c["name"] == collection_name for c in collections.get("collections", []))
+        configurations = requests.get(f"{BASE_URL}/configurations").json()
+        collection_exists = any(c["name"] == configuration_name for c in configurations.get("configurations", []))
         
         # Configure the collection
         config = {
@@ -74,7 +74,7 @@ async def main():
         
         response = requests.post(
             f"{BASE_URL}{API_PREFIX}/configure_collection",
-            json={"collection_name": collection_name, "config": config}
+            json={"configuration_name": configuration_name, "config": config}
         ).json()
         
         print(f"Configuration set: {response.get('message')}")
@@ -106,7 +106,7 @@ async def main():
                 
             # Upload the sample content
             files = {'file': open('examples/sample_content.txt', 'rb')}
-            data = {'collection_name': collection_name}
+            data = {'configuration_name': configuration_name}
             upload_response = requests.post(f"{BASE_URL}{API_PREFIX}/upload", files=files, data=data).json()
             print(f"Uploaded document: {upload_response.get('message')}")
             time.sleep(2)  # Give time for processing to complete
@@ -129,7 +129,7 @@ async def main():
     query_no_context = "How do they relate to context windows?"
     response_no_context = requests.post(
         f"{BASE_URL}{API_PREFIX}/query",
-        json={"query": query_no_context, "collection_name": collection_name}
+        json={"query": query_no_context, "configuration_name": configuration_name}
     ).json()
     
     print(f"Query: {query_no_context}")
@@ -142,7 +142,7 @@ async def main():
         f"{BASE_URL}{API_PREFIX}/query",
         json={
             "query": query_with_context,
-            "collection_name": collection_name,
+            "configuration_name": configuration_name,
             "context_items": context_items
         }
     ).json()
@@ -157,7 +157,7 @@ async def main():
     config["reranking"]["enabled"] = False
     response = requests.post(
         f"{BASE_URL}/configure",
-        json={"collection_name": collection_name, "config": config}
+        json={"configuration_name": configuration_name, "config": config}
     ).json()
     
     # Query without reranking
@@ -165,7 +165,7 @@ async def main():
     query = "What is retrieval augmented generation?"
     response_no_reranking = requests.post(
         f"{BASE_URL}{API_PREFIX}/query",
-        json={"query": query, "collection_name": collection_name}
+        json={"query": query, "configuration_name": configuration_name}
     ).json()
     
     print(f"Query: {query}")
@@ -175,14 +175,14 @@ async def main():
     config["reranking"]["enabled"] = True
     response = requests.post(
         f"{BASE_URL}/configure",
-        json={"collection_name": collection_name, "config": config}
+        json={"configuration_name": configuration_name, "config": config}
     ).json()
     
     # Query with reranking
     print("\nQuery WITH reranking:")
     response_with_reranking = requests.post(
         f"{BASE_URL}{API_PREFIX}/query",
-        json={"query": query, "collection_name": collection_name}
+        json={"query": query, "configuration_name": configuration_name}
     ).json()
     
     print(f"Query: {query}")
