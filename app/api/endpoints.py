@@ -241,27 +241,6 @@ async def delete_configuration(configuration_name: str):
         logger.error(f"Error deleting configuration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-# Preset functionality has been removed
-
-@router.get("/configurations/raw")
-async def list_all_configuration_details():
-    """List all configuration details in raw format."""
-    try:
-        # Get all configurations from the RAG service
-        configurations = {}
-        
-        for configuration_name, config in rag_service.configurations.items():
-            configurations[configuration_name] = config.dict()
-        
-        return {
-            "configurations": configurations,
-            "total_count": len(configurations)
-        }
-        
-    except Exception as e:
-        logger.error(f"Error listing configuration details: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
 @router.get("/debug/{configuration_name}")
 async def debug_configuration(configuration_name: str, limit: int = 10, show_vectors: bool = False):
     """Debug endpoint to inspect the vectors and chunks in a configuration.

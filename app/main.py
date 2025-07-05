@@ -1,6 +1,13 @@
 import logging
 import json
 import datetime
+import sys
+import os
+
+# Add project root to sys.path for direct debugging
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

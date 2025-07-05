@@ -164,8 +164,8 @@ class RAGService:
             vector_store = self._get_vector_store(configuration_name)
             
             # Generate embeddings and add to vector store
-            embeddings = await embedding_service.embed_texts([c.text for c in chunks])
-            vector_store.add_chunks(chunks, embeddings)
+            embeddings = await embedding_service.embed_texts([c.page_content for c in chunks])
+            vector_store.add_documents(chunks)
             
             # Update document status
             document.status = DocumentStatus.PROCESSED
@@ -268,18 +268,18 @@ class RAGService:
             raise
 
     def get_configurations(self) -> List[Dict[str, Any]]:
-        """Get information about all configurations."""
+        """Get information about all configurations without initializing services."""
         configurations = []
         
         for configuration_name in self.configurations.keys():
             try:
-                vector_store = self._get_vector_store(configuration_name)
-                doc_count = vector_store.get_document_count()
                 config = self.get_configuration(configuration_name)
                 
+                # Don't try to connect to vector store or get document count
+                # Just return the configuration information
                 configurations.append({
                     'name': configuration_name,
-                    'document_count': doc_count,
+                    'document_count': 0,  # Default to 0 since we're not connecting to the store
                     'config': config.dict()
                 })
             except Exception as e:
