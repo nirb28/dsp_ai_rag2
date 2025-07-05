@@ -196,6 +196,111 @@ class TritonGenerationService:
         # but with a different prompt focused on summarization
         pass
 
+class OpenAICompatibleGenerationService:
+    def __init__(self, config: GenerationConfig):
+        self.config = config
+        self.server_url = config.server_url
+        self.model = config.model
+        
+        if not self.server_url:
+            raise ValueError("Server URL not provided for OpenAI compatible endpoint")
+            
+    async def generate_response(
+        self, 
+        query: str, 
+        context_documents: List[Dict[str, Any]],
+        system_prompt: str = None
+    ) -> str:
+        """Generate a response using OpenAI compatible API endpoint."""
+        try:
+            # Prepare context
+            context = self._prepare_context(context_documents)
+            
+            # Prepare messages
+            messages = []
+            
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            else:
+                messages.append({
+                    "role": "system", 
+                    "content": "You are a helpful AI assistant. Answer questions based on the provided context. If the context doesn't contain enough information to answer the question, say so clearly."
+                })
+            
+            user_message = f"""Context:
+{context}
+
+Question: {query}
+
+Please provide a comprehensive answer based on the context above."""
+            
+            messages.append({"role": "user", "content": user_message})
+            
+            # OpenAI API endpoint - we will use /v1/chat/completions for compatibility
+            # Complete URL: server_url/v1/chat/completions
+            endpoint = f"{self.server_url.rstrip('/')}/v1/chat/completions"
+            
+            logger.info(f"Sending request to OpenAI compatible endpoint: {endpoint}")
+            
+            # Prepare request - using OpenAI format
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+                "top_p": self.config.top_p
+            }
+            
+            # Add top_k if specified
+            if self.config.top_k is not None:
+                payload["top_k"] = self.config.top_k
+                
+            # Make request
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    endpoint,
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                response.raise_for_status()
+                
+                result = response.json()
+                # Extract content using OpenAI format
+                if "choices" in result and len(result["choices"]) > 0:
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    logger.warning(f"Unexpected response format from OpenAI compatible API: {result}")
+                    return "Error: Unexpected response format from API"
+                
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error from OpenAI compatible API: {e.response.status_code} - {e.response.text}")
+            raise Exception(f"Error from OpenAI compatible API: {e.response.status_code}")
+        except Exception as e:
+            logger.error(f"Error generating response with OpenAI compatible API: {str(e)}")
+            raise
+
+    def _prepare_context(self, documents: List[Dict[str, Any]]) -> str:
+        """Prepare context from retrieved documents."""
+        if not documents:
+            return "No relevant context found."
+        
+        context_parts = []
+        for i, doc in enumerate(documents, 1):
+            content = doc.get('content', '')
+            metadata = doc.get('metadata', {})
+            filename = metadata.get('filename', 'Unknown')
+            
+            context_part = f"Document {i} (from {filename}):\n{content}\n"
+            context_parts.append(context_part)
+        
+        return "\n".join(context_parts)
+
+    def generate_summary(self, text: str) -> str:
+        """Generate a summary of the given text."""
+        # This would be implemented similarly to generate_response
+        # but with a different prompt focused on summarization
+        pass
+
 class GenerationServiceFactory:
     @staticmethod
     def create_service(config: GenerationConfig):
@@ -205,5 +310,7 @@ class GenerationServiceFactory:
             return GroqGenerationService(config)
         elif config.provider == LLMProvider.TRITON:
             return TritonGenerationService(config)
+        elif config.provider == LLMProvider.OPENAI_COMPATIBLE:
+            return OpenAICompatibleGenerationService(config)
         else:
             raise ValueError(f"Unsupported provider: {config.provider}")

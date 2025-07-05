@@ -26,11 +26,13 @@ class LLMProvider(str, Enum):
     """The provider of the LLM service"""
     GROQ = "groq"
     TRITON = "triton"
+    OPENAI_COMPATIBLE = "openai_compatible"  # For locally deployed OpenAI-compatible endpoints
 
 # Common model names for reference - not used for validation
 COMMON_MODELS = {
     "groq": ["llama3-8b-8192", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma-7b-it"],
-    "triton": ["Llama-3.1-70B-Instruct", "llama3-vllm"]
+    "triton": ["Llama-3.1-70B-Instruct", "llama3-vllm"],
+    "openai_compatible": ["gpt-3.5-turbo", "gpt-4", "llama3", "mistral", "mixtral"]  # Common models for OpenAI-compatible APIs
 }
     
 class RerankerModel(str, Enum):
@@ -82,7 +84,7 @@ class GenerationConfig(BaseModel):
     @model_validator(mode='after')
     def validate_provider(self):
         """Ensure provider is valid"""
-        if self.provider not in [LLMProvider.GROQ, LLMProvider.TRITON]:
+        if self.provider not in [LLMProvider.GROQ, LLMProvider.TRITON, LLMProvider.OPENAI_COMPATIBLE]:
             raise ValueError(f"Invalid provider: {self.provider}. Must be one of: {', '.join([p.value for p in LLMProvider])}")
         return self
 
