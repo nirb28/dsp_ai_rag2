@@ -25,18 +25,6 @@ def test_root_endpoint(client):
     assert data["version"] == "1.0.0"
     assert data["docs"] == "/docs"
 
-def test_get_configuration_presets(client):
-    """Test getting configuration presets."""
-    response = client.get("/api/v1/presets")
-    assert response.status_code == 200
-    
-    data = response.json()
-    assert "presets" in data
-    assert "description" in data
-    assert "fast_processing" in data["presets"]
-    assert "high_quality" in data["presets"]
-    assert "balanced" in data["presets"]
-
 def test_configure_collection(client, sample_config):
     """Test configuring a collection."""
     response = client.post(
@@ -89,25 +77,6 @@ def test_get_configuration(client, sample_config):
     data = response.json()
     assert data["collection_name"] == "test_collection"
     assert "config" in data
-
-def test_apply_configuration_preset(client):
-    """Test applying a configuration preset."""
-    response = client.post(
-        "/api/v1/configure/preset/fast_processing?collection_name=test_preset"
-    )
-    assert response.status_code == 200
-    
-    data = response.json()
-    assert data["collection_name"] == "test_preset"
-    assert "config" in data
-    assert "Applied preset 'fast_processing'" in data["message"]
-
-def test_apply_invalid_preset(client):
-    """Test applying an invalid preset."""
-    response = client.post(
-        "/api/v1/configure/preset/invalid_preset?collection_name=test"
-    )
-    assert response.status_code == 404
 
 @patch('app.services.rag_service.RAGService.upload_document')
 def test_upload_document_success(mock_upload, client, sample_text_file):

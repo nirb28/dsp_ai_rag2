@@ -125,8 +125,7 @@ async def upload_document(
 async def query_documents(request: QueryRequest):
     """Query documents in a collection.
     
-    Supports optional context items for context injection (e.g., chat history)
-    and uses reranking if configured for the collection.
+    Uses reranking if configured for the collection.
     """
     try:
         # Check if reranking and context injection are enabled for this collection

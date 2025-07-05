@@ -39,9 +39,10 @@ class EmbeddingService:
                 logger.info("Verified OpenAI API key is set")
             elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
                 # Verify the server URL is set
-                if not settings.TRITON_SERVER_URL:
-                    raise ValueError("Triton server URL not provided")
-                logger.info(f"Using Triton embedding model at {settings.TRITON_SERVER_URL}")
+                server_url = self.config.server_url
+                if not server_url:
+                    raise ValueError("Server URL not provided")
+                logger.info(f"Using embedding model server at {server_url}")
             elif self.config.model == EmbeddingModel.LOCAL_MODEL_SERVER:
                 # Verify the server URL is set
                 model_server_url = self.config.model_server_url or settings.MODEL_SERVER_URL
@@ -106,7 +107,8 @@ class EmbeddingService:
         """Generate embeddings using Triton Inference Server."""
         embeddings = []
         batch_size = self.config.batch_size
-        endpoint = f"{settings.TRITON_SERVER_URL}/v2/models/{settings.TRITON_EMBEDDING_MODEL}/infer"
+        server_url = self.config.server_url
+        endpoint = f"{server_url}/v2/models/{settings.TRITON_EMBEDDING_MODEL}/infer"
         
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]

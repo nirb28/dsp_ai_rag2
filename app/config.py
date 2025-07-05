@@ -51,6 +51,7 @@ class EmbeddingConfig(BaseModel):
     model: EmbeddingModel = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM
     batch_size: int = Field(default=32, ge=1, le=128)
     model_server_url: Optional[str] = Field(default=None, description="URL for the local model server")
+    server_url: Optional[str] = Field(default="http://localhost:8000", description="URL for the inference server")
 
 class RerankerConfig(BaseModel):
     """Configuration for the reranking step in the retrieval process."""
@@ -66,17 +67,7 @@ class RerankerConfig(BaseModel):
             raise ValueError("If reranking is enabled, a reranker model must be selected")
         return self
 
-class ContextInjectionConfig(BaseModel):
-    """Configuration for injecting additional context into prompts."""
-    enabled: bool = Field(default=False, description="Whether to use context injection")
-    max_items: int = Field(default=5, ge=1, le=20, description="Maximum context items to include")
-    max_tokens_per_item: int = Field(default=500, ge=50, le=2000, description="Max tokens per context item")
-    position: str = Field(default="before_query", description="Where to inject context in the prompt")
-    separator: str = Field(default="\n\n", description="Separator between context items")
-    context_prefix: str = Field(default="Context: ", description="Prefix for the injected context")
-    
-    # Optional field for static context that should always be included
-    static_context: Optional[str] = Field(default=None, description="Static context to always inject")
+# ContextInjectionConfig class removed
 
 class GenerationConfig(BaseModel):
     model: GenerationModel = GenerationModel.GROQ_LLAMA3_8B
@@ -84,6 +75,7 @@ class GenerationConfig(BaseModel):
     max_tokens: int = Field(default=1024, ge=1, le=4096)
     top_p: float = Field(default=0.9, ge=0.0, le=1.0)
     top_k: Optional[int] = Field(default=None, ge=1, le=100)
+    server_url: Optional[str] = Field(default="http://localhost:8000", description="URL for the inference server")
 
 class RAGConfig(BaseModel):
     collection_name: str = Field(default="default", min_length=1)
@@ -95,7 +87,6 @@ class RAGConfig(BaseModel):
     similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     # New features
     reranking: Optional[RerankerConfig] = Field(default_factory=RerankerConfig)
-    context_injection: Optional[ContextInjectionConfig] = Field(default_factory=ContextInjectionConfig)
 
 class Settings:
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")

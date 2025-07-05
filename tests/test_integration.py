@@ -74,7 +74,8 @@ def config_for_testing():
             "chunk_overlap": 50
         },
         "embedding": {
-            "model": "sentence-transformers/all-MiniLM-L6-v2"
+            "model": "sentence-transformers/all-MiniLM-L6-v2",
+            "server_url": "http://zahrt.sas.upenn.edu:9001"
         },
         "vector_store": {
             "type": "faiss"
@@ -211,7 +212,10 @@ def test_vectorize_now_validation(client, temp_storage, sample_text_file):
         json={
             "collection_name": collection_name,
             "config": {
-                "chunking": {"strategy": "fixed_size", "chunk_size": 200}
+                "chunking": {"strategy": "fixed_size", "chunk_size": 200},
+                "embedding": {
+                    "server_url": "http://zahrt.sas.upenn.edu:9001"
+                }
             }
         }
     )
@@ -236,50 +240,4 @@ def test_vectorize_now_validation(client, temp_storage, sample_text_file):
         f"Response missing document_id: {upload_data}"
 
 
-def test_preset_configurations(client, temp_storage, sample_text_file):
-    """Test that preset configurations work correctly."""
-    # 1. Get available presets
-    presets_response = client.get("/api/v1/presets")
-    assert presets_response.status_code == 200
-    presets_data = presets_response.json()
-    
-    # Make sure we have our expected presets
-    assert "fast_processing" in presets_data["presets"]
-    assert "high_quality" in presets_data["presets"]
-    assert "balanced" in presets_data["presets"]
-    
-    # 2. Apply a preset configuration
-    collection_name = "preset_test"
-    preset_name = "fast_processing"
-    
-    preset_response = client.post(
-        f"/api/v1/configure/preset/{preset_name}?collection_name={collection_name}"
-    )
-    assert preset_response.status_code == 200
-    
-    # 3. Upload and process a document with this preset
-    with open(sample_text_file, 'rb') as f:
-        upload_response = client.post(
-            "/api/v1/upload",
-            files={"file": (Path(sample_text_file).name, f, "text/plain")},
-            data={
-                "collection_name": collection_name,
-                "process_immediately": "true"
-            }
-        )
-    
-    assert upload_response.status_code == 200
-    
-    # 4. Query to verify everything works with the preset configuration
-    query_response = client.post(
-        "/api/v1/query",
-        json={
-            "query": "What is artificial intelligence?",
-            "collection_name": collection_name,
-            "include_metadata": True
-        }
-    )
-    
-    assert query_response.status_code == 200
-    query_data = query_response.json()
-    assert len(query_data["answer"]) > 0
+# test_preset_configurations has been removed as presets are no longer supported

@@ -107,11 +107,11 @@ Please provide a comprehensive answer based on the context above."""
 class TritonGenerationService:
     def __init__(self, config: GenerationConfig):
         self.config = config
-        self.base_url = settings.TRITON_SERVER_URL
+        self.base_url = config.server_url
         self.model_name = settings.TRITON_LLM_MODEL
         
         if not self.base_url:
-            raise ValueError("Triton server URL not provided")
+            raise ValueError("Server URL not provided")
 
     async def generate_response(
         self, 
