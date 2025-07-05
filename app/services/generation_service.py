@@ -131,8 +131,12 @@ class TritonGenerationService:
             if not system_prompt:
                 system_prompt = "You are a helpful AI assistant. Answer questions based on the provided context. If the context doesn't contain enough information to answer the question, say so clearly."
             
-            # Format the prompt with context and query
-            user_message = f"Context:\n{context}\n\nQuestion: {query}\n\nPlease provide a comprehensive answer based on the context above."
+            # For Triton models, include the system prompt in the user message instead
+            # This avoids issues with the system_prompt parameter requiring lora_name
+            if system_prompt:
+                user_message = f"System: {system_prompt}\n\nContext:\n{context}\n\nQuestion: {query}\n\nPlease provide a comprehensive answer based on the context above."
+            else:
+                user_message = f"Context:\n{context}\n\nQuestion: {query}\n\nPlease provide a comprehensive answer based on the context above."
             
             # For Triton, the full URL format is: server_url/v2/models/model_name/generate
             # server_url should already include host:port
@@ -140,14 +144,13 @@ class TritonGenerationService:
             
             logger.info(f"Sending request to Triton endpoint: {endpoint}")
             
-            # Prepare request payload
+            # Prepare request payload - without system_prompt to avoid lora_name issue
             payload = {
                 "text_input": user_message,
                 "parameters": {
                     "max_tokens": self.config.max_tokens,
                     "temperature": self.config.temperature,
-                    "top_p": self.config.top_p,
-                    "system_prompt": system_prompt
+                    "top_p": self.config.top_p
                 }
             }
             
