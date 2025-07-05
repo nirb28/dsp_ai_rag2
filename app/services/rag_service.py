@@ -267,7 +267,7 @@ class RAGService:
             logger.error(f"Error processing query: {str(e)}")
             raise
 
-    def get_collections(self) -> List[Dict[str, Any]]:
+    def get_configurations(self) -> List[Dict[str, Any]]:
         """Get information about all configurations."""
         configurations = []
         

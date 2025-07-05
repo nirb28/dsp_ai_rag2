@@ -204,7 +204,7 @@ async def get_configuration(configuration_name: str):
 async def list_configurations():
     """List all configurations and their information."""
     try:
-        configurations_data = rag_service.get_collections()
+        configurations_data = rag_service.get_configurations()
         
         configurations = []
         for data in configurations_data:
