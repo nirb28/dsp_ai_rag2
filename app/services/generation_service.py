@@ -4,7 +4,7 @@ import httpx
 import requests
 import json
 
-from app.config import GenerationConfig, GenerationModel, settings
+from app.config import GenerationConfig, LLMProvider, COMMON_MODELS, settings
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ Please provide a comprehensive answer based on the context above."""
             
             # Prepare request
             payload = {
-                "model": self.config.model.value,
+                "model": self.config.model,
                 "messages": messages,
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
@@ -107,11 +107,14 @@ Please provide a comprehensive answer based on the context above."""
 class TritonGenerationService:
     def __init__(self, config: GenerationConfig):
         self.config = config
-        self.base_url = config.server_url
-        self.model_name = settings.TRITON_LLM_MODEL
+        self.server_url = config.server_url
+        self.model_name = config.model
         
-        if not self.base_url:
+        if not self.server_url:
             raise ValueError("Server URL not provided")
+            
+        # The complete URL should already include the server address and port
+        # We don't need to append anything here since it's provided in the config
 
     async def generate_response(
         self, 
@@ -131,8 +134,11 @@ class TritonGenerationService:
             # Format the prompt with context and query
             user_message = f"Context:\n{context}\n\nQuestion: {query}\n\nPlease provide a comprehensive answer based on the context above."
             
-            # Prepare the generation endpoint URL
-            endpoint = f"{self.base_url}/v2/models/{self.model_name}/generate"
+            # For Triton, the full URL format is: server_url/v2/models/model_name/generate
+            # server_url should already include host:port
+            endpoint = f"{self.server_url}/v2/models/{self.model_name}/generate"
+            
+            logger.info(f"Sending request to Triton endpoint: {endpoint}")
             
             # Prepare request payload
             payload = {
@@ -191,9 +197,10 @@ class GenerationServiceFactory:
     @staticmethod
     def create_service(config: GenerationConfig):
         """Create a generation service based on configuration."""
-        if config.model.value.startswith(("llama", "mixtral", "gemma")):
+        # Use the provider field to determine the service
+        if config.provider == LLMProvider.GROQ:
             return GroqGenerationService(config)
-        elif config.model == GenerationModel.TRITON_LLAMA_3_70B:
+        elif config.provider == LLMProvider.TRITON:
             return TritonGenerationService(config)
         else:
-            raise ValueError(f"Unsupported generation model: {config.model}")
+            raise ValueError(f"Unsupported provider: {config.provider}")

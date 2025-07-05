@@ -26,7 +26,7 @@ from reportlab.pdfgen import canvas
 from io import BytesIO
 
 from app.main import app
-from app.config import RAGConfig, ChunkingStrategy, EmbeddingModel, VectorStore, GenerationModel
+from app.config import RAGConfig, ChunkingStrategy, EmbeddingModel, VectorStore
 
 
 @pytest.fixture

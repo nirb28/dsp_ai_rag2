@@ -172,7 +172,8 @@ class RAGService:
         query: str, 
         collection_name: str = "default",
         k: Optional[int] = None,
-        similarity_threshold: Optional[float] = None
+        similarity_threshold: Optional[float] = None,
+        context_items: Optional[List[Dict[str, Any]]] = None
     ) -> QueryResponse:
         """Query the RAG system with optional context injection and reranking.
         
@@ -181,6 +182,7 @@ class RAGService:
             collection_name: The collection to search in
             k: Number of results to retrieve (overrides config)
             similarity_threshold: Minimum similarity score for retrieval (overrides config)
+            context_items: Optional list of additional context items to include with the retrieved documents
             
         Returns:
             QueryResponse with answer and sources
@@ -225,6 +227,15 @@ class RAGService:
                 # Limit to original k if reranking returned more
                 if len(context_docs) > k:
                     context_docs = context_docs[:k]
+                    
+            # Add additional context items if provided
+            if context_items:
+                logger.info(f"Adding {len(context_items)} additional context items")
+                for item in context_items:
+                    # Ensure consistency with retrieved docs format
+                    if 'similarity_score' not in item:
+                        item['similarity_score'] = 1.0  # Give highest priority to manually injected content
+                    context_docs.append(item)
             
             # Generate response - use the potentially context-injected query for generation
             answer = await generation_service.generate_response(query, context_docs)

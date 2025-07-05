@@ -22,12 +22,16 @@ class EmbeddingModel(str, Enum):
     TRITON_EMBEDDING = "triton-embedding"  # Add Triton embedding model
     LOCAL_MODEL_SERVER = "local-model-server"  # Local model server endpoint
 
-class GenerationModel(str, Enum):
-    GROQ_LLAMA3_8B = "llama3-8b-8192"
-    GROQ_LLAMA3_70B = "llama3-70b-8192"
-    GROQ_MIXTRAL_8X7B = "mixtral-8x7b-32768"
-    GROQ_GEMMA_7B = "gemma-7b-it"
-    TRITON_LLAMA_3_70B = "meta-llama Llama-3.1-70B-Instruct"  # Add Triton LLM model
+class LLMProvider(str, Enum):
+    """The provider of the LLM service"""
+    GROQ = "groq"
+    TRITON = "triton"
+
+# Common model names for reference - not used for validation
+COMMON_MODELS = {
+    "groq": ["llama3-8b-8192", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma-7b-it"],
+    "triton": ["Llama-3.1-70B-Instruct", "llama3-vllm"]
+}
     
 class RerankerModel(str, Enum):
     """Models that can be used for reranking retrieved chunks."""
@@ -66,15 +70,21 @@ class RerankerConfig(BaseModel):
             raise ValueError("If reranking is enabled, a reranker model must be selected")
         return self
 
-# ContextInjectionConfig class removed
-
 class GenerationConfig(BaseModel):
-    model: GenerationModel = GenerationModel.GROQ_LLAMA3_8B
+    model: str = Field(default="llama3-8b-8192", description="Model name as a string - not restricted to enum values")
+    provider: LLMProvider = Field(default=LLMProvider.GROQ, description="The LLM provider type")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1024, ge=1, le=4096)
     top_p: float = Field(default=0.9, ge=0.0, le=1.0)
     top_k: Optional[int] = Field(default=None, ge=1, le=100)
     server_url: Optional[str] = Field(default="http://localhost:8000", description="URL for the inference server")
+    
+    @model_validator(mode='after')
+    def validate_provider(self):
+        """Ensure provider is valid"""
+        if self.provider not in [LLMProvider.GROQ, LLMProvider.TRITON]:
+            raise ValueError(f"Invalid provider: {self.provider}. Must be one of: {', '.join([p.value for p in LLMProvider])}")
+        return self
 
 class RAGConfig(BaseModel):
     collection_name: str = Field(default="default", min_length=1)
@@ -96,11 +106,8 @@ class Settings:
     ALLOWED_FILE_TYPES: list[str] = ["pdf", "txt", "docx", "pptx"]
     # Model loading settings
     LOCAL_MODELS_PATH: str = os.getenv("LOCAL_MODELS_PATH", "./models")
-    # Local model server settings
-    MODEL_SERVER_URL: str = os.getenv("MODEL_SERVER_URL", "http://localhost:8001")
-    # Model server settings
-    TRITON_EMBEDDING_MODEL: str = os.getenv("TRITON_EMBEDDING_MODEL", "embedding-model")
-    TRITON_LLM_MODEL: str = os.getenv("TRITON_LLM_MODEL", "meta-llama Llama-3.1-70B-Instruct")
+    # Triton model settings
+    TRITON_LLM_MODEL: str = os.getenv("TRITON_LLM_MODEL", "llama3-vllm")
 
 settings = Settings()
 

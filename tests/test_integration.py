@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from pathlib import Path
 
 from app.main import app
-from app.config import RAGConfig, ChunkingStrategy, EmbeddingModel, VectorStore, GenerationModel
+from app.config import RAGConfig, ChunkingStrategy, EmbeddingModel, VectorStore
 
 
 @pytest.fixture
@@ -79,7 +79,16 @@ def config_for_testing():
         },
         "vector_store": {
             "type": "faiss"
-        }
+        },
+        "generation": {
+            "model": "llama3-vllm",
+            "provider": "triton",
+            "temperature": 0.7,
+            "max_tokens": 1024,
+            "top_p": 0.9,
+            "top_k": 5,
+            "server_url": "http://zahrt.sas.upenn.edu:8000"
+        }        
     }
 
 
