@@ -14,13 +14,15 @@
     },
     "embedding": {
       "model": "sentence-transformers/all-MiniLM-L6-v2",
-      "batch_size": 32
+      "batch_size": 32,
+      "server_url": "http://zahrt.sas.upenn.edu:9001"
     },
     "generation": {
       "model": "llama3-8b-8192",
       "temperature": 0.7,
       "max_tokens": 1024,
-      "top_p": 0.9
+      "top_p": 0.9,
+      "server_url": "http://localhost:8000"
     },
     "retrieval_k": 5,
     "similarity_threshold": 0.7
@@ -40,13 +42,15 @@
     },
     "embedding": {
       "model": "sentence-transformers/all-MiniLM-L6-v2",
-      "batch_size": 64
+      "batch_size": 64,
+      "server_url": "http://zahrt.sas.upenn.edu:9001"
     },
     "generation": {
       "model": "llama3-8b-8192",
       "temperature": 0.5,
       "max_tokens": 512,
-      "top_p": 0.9
+      "top_p": 0.9,
+      "server_url": "http://localhost:8000"
     },
     "retrieval_k": 5,
     "similarity_threshold": 0.7

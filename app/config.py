@@ -50,8 +50,7 @@ class VectorStoreConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     model: EmbeddingModel = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM
     batch_size: int = Field(default=32, ge=1, le=128)
-    model_server_url: Optional[str] = Field(default=None, description="URL for the local model server")
-    server_url: Optional[str] = Field(default="http://localhost:8000", description="URL for the inference server")
+    server_url: Optional[str] = Field(default="http://localhost:8000", description="URL for the model server or inference server")
 
 class RerankerConfig(BaseModel):
     """Configuration for the reranking step in the retrieval process."""
@@ -99,8 +98,7 @@ class Settings:
     LOCAL_MODELS_PATH: str = os.getenv("LOCAL_MODELS_PATH", "./models")
     # Local model server settings
     MODEL_SERVER_URL: str = os.getenv("MODEL_SERVER_URL", "http://localhost:8001")
-    # Triton server settings
-    TRITON_SERVER_URL: str = os.getenv("TRITON_SERVER_URL", "http://localhost:8000")
+    # Model server settings
     TRITON_EMBEDDING_MODEL: str = os.getenv("TRITON_EMBEDDING_MODEL", "embedding-model")
     TRITON_LLM_MODEL: str = os.getenv("TRITON_LLM_MODEL", "meta-llama Llama-3.1-70B-Instruct")
 

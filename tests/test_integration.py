@@ -168,7 +168,12 @@ def test_collection_name_respected(client, temp_storage, sample_text_file):
         json={
             "collection_name": collection_name,
             "config": {
-                "chunking": {"strategy": "fixed_size", "chunk_size": 200}
+                "chunking": {"strategy": "fixed_size", "chunk_size": 300},
+                "embedding": {
+                    "model": "sentence-transformers/all-MiniLM-L6-v2",
+                    "batch_size": 64,
+                    "server_url": "http://zahrt.sas.upenn.edu:9001"
+                }
             }
         }
     )
@@ -214,6 +219,7 @@ def test_vectorize_now_validation(client, temp_storage, sample_text_file):
             "config": {
                 "chunking": {"strategy": "fixed_size", "chunk_size": 200},
                 "embedding": {
+                    "model": "sentence-transformers/all-MiniLM-L6-v2",
                     "server_url": "http://zahrt.sas.upenn.edu:9001"
                 }
             }
@@ -239,5 +245,3 @@ def test_vectorize_now_validation(client, temp_storage, sample_text_file):
     assert "document_id" in upload_data, \
         f"Response missing document_id: {upload_data}"
 
-
-# test_preset_configurations has been removed as presets are no longer supported

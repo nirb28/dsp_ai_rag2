@@ -149,7 +149,7 @@ Specify the model server URL directly in your embedding configuration:
 embedding=EmbeddingConfig(
   model=EmbeddingModel.LOCAL_MODEL_SERVER,
   batch_size=32,
-  model_server_url="http://localhost:8001"  # Explicitly set the URL
+  server_url="http://localhost:8001"  # Explicitly set the URL
 )
 ```
 
@@ -168,7 +168,7 @@ embedding=EmbeddingConfig(
    MODEL_SERVER_URL=http://localhost:8001
    ```
 
-The system will first check if `model_server_url` is provided in the config, and if not, it will fall back to the `MODEL_SERVER_URL` from environment settings.
+The system will first check if `server_url` is provided in the config, and if not, it will fall back to the `MODEL_SERVER_URL` from environment settings.
 
 ## Example Postman Collection
 

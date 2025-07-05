@@ -69,7 +69,7 @@ def batch_config():
         print("Using local model server for embeddings")
         embedding_config = {
             "model": "local-model-server",
-            "model_server_url": "http://localhost:8001"
+            "server_url": "http://localhost:8001"
         }
         
     return {
