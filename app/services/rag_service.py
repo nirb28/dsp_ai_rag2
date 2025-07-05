@@ -164,11 +164,11 @@ class RAGService:
             vector_store = self._get_vector_store(configuration_name)
             
             # Generate embeddings and add to vector store
-            embeddings = await embedding_service.embed_texts([c.page_content for c in chunks])
+            embeddings = embedding_service.embed_texts([c.page_content for c in chunks])
             vector_store.add_documents(chunks)
             
             # Update document status
-            document.status = DocumentStatus.PROCESSED
+            document.status = DocumentStatus.INDEXED
             return True
         except Exception as e:
             document.status = DocumentStatus.FAILED
@@ -213,11 +213,22 @@ class RAGService:
             # Context injection functionality removed
             
             # Retrieve relevant documents
+            # Pass the freshly created embedding service to override the one in the vector store
+            if hasattr(vector_store, 'embedding_service'):
+                # Store the original embedding service
+                original_embedding_service = vector_store.embedding_service
+                # Temporarily replace with our current embedding service
+                vector_store.embedding_service = embedding_service
+                
             results = vector_store.similarity_search(
                 query,
                 k=k if not reranker_service.config.enabled else max(k, reranker_service.config.top_n),
                 similarity_threshold=similarity_threshold
             )
+            
+            # Restore the original embedding service if we changed it
+            if hasattr(vector_store, 'embedding_service') and 'original_embedding_service' in locals():
+                vector_store.embedding_service = original_embedding_service
             
             # Prepare context documents
             context_docs = []
