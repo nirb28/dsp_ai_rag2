@@ -69,7 +69,7 @@ def batch_config():
         print("Using local model server for embeddings")
         embedding_config = {
             "model": "local-model-server",
-            "server_url": "http://localhost:8001"
+            "server_url": "http://zahrt.sas.upenn.edu:9001"
         }
         
     return {
@@ -347,18 +347,23 @@ if __name__ == "__main__":
                     "chunk_size": 1000,
                     "chunk_overlap": 200
                 },
-                "embedding": {
-                    "model": "sentence-transformers/all-MiniLM-L6-v2"
-                },
                 "vector_store": {
                     "type": "faiss"
                 },
+                "embedding": {
+                    "model": "sentence-transformers/all-MiniLM-L6-v2",
+                    "batch_size": 64,
+                    "server_url": "http://zahrt.sas.upenn.edu:9001"
+                },
                 "generation": {
                     "model": "llama3-8b-8192",
-                    "temperature": 0.2,
-                    "max_tokens": 500,
-                    "top_p": 0.9
-                }
+                    "provider": "groq",
+                    "temperature": 0.7,
+                    "max_tokens": 1024,
+                    "top_p": 0.9,
+                    "top_k": null,
+                    "server_url": "http://localhost:8000"
+                },                
             }
             
             collection_name = f"batch_{args.folder}_test"

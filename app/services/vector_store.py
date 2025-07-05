@@ -6,11 +6,12 @@ from typing import List, Dict, Any, Tuple, Optional
 from pathlib import Path
 import numpy as np
 import uuid
+from enum import Enum
 
 import faiss
 import redis
 from redis.commands.search.field import TextField, VectorField
-from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
 from langchain.docstore.document import Document as LangchainDocument
 
@@ -18,6 +19,10 @@ from app.config import VectorStoreConfig, settings
 from app.services.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
+
+class VectorStore(str, Enum):
+    FAISS = "faiss"
+    REDIS = "redis"
 
 class FAISSVectorStore:
     def __init__(self, config: VectorStoreConfig, embedding_service: EmbeddingService):
