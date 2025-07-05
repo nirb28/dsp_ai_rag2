@@ -36,10 +36,13 @@
       "separators": null
     },
     "vector_store": {
-      "type": "faiss",
-      "index_path": "./storage/faiss_index",
-      "dimension": 384
-    },
+      "type": "redis",
+      "dimension": 384,
+      "redis_host": "localhost", 
+      "redis_port": 6379,
+      "redis_password": null,  
+      "redis_index_name": "document-index"
+    },    
     "embedding": {
       "model": "sentence-transformers/all-MiniLM-L6-v2",
       "batch_size": 64,

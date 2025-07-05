@@ -29,6 +29,7 @@ faiss-cpu
 chromadb
 pinecone-client
 weaviate-client
+redis
 
 # Text processing and tokens
 tiktoken

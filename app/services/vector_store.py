@@ -5,11 +5,16 @@ import logging
 from typing import List, Dict, Any, Tuple, Optional
 from pathlib import Path
 import numpy as np
+import uuid
 
 import faiss
+import redis
+from redis.commands.search.field import TextField, VectorField
+from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+from redis.commands.search.query import Query
 from langchain.docstore.document import Document as LangchainDocument
 
-from app.config import VectorStoreConfig
+from app.config import VectorStoreConfig, settings
 from app.services.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
@@ -180,20 +185,235 @@ class FAISSVectorStore:
             logger.error(f"Error saving FAISS index: {str(e)}")
             raise
 
+class RedisVectorStore:
+    def __init__(self, config: VectorStoreConfig, embedding_service: EmbeddingService):
+        self.config = config
+        self.embedding_service = embedding_service
+        self.dimension = embedding_service.get_dimension()
+        self.redis_client = None
+        self.index_name = config.redis_index_name
+        self.vector_field_name = "embedding"
+        self._initialize_client()
+        
+    def _initialize_client(self):
+        """Initialize Redis client and create index if it doesn't exist."""
+        try:
+            # Connect to Redis using configuration
+            redis_url = f"redis://{':' + self.config.redis_password + '@' if self.config.redis_password else ''}{self.config.redis_host}:{self.config.redis_port}"
+            
+            # Use environment variable if available
+            if os.environ.get("REDIS_URL"):
+                redis_url = os.environ.get("REDIS_URL")
+                
+            self.redis_client = redis.from_url(redis_url)
+            
+            # Check if the index already exists
+            existing_indices = self.redis_client.execute_command("FT._LIST")
+            
+            if self.index_name.encode() not in existing_indices:
+                # Create index with vector search capability
+                text_field = TextField(name="content")
+                metadata_field = TextField(name="metadata", no_stem=True)
+                filename_field = TextField(name="filename", no_stem=True)
+                doc_id_field = TextField(name="doc_id", no_stem=True)
+                
+                # Vector field for embeddings
+                vector_field = VectorField(
+                    self.vector_field_name,
+                    "FLAT", {
+                        "TYPE": "FLOAT32",
+                        "DIM": self.dimension,
+                        "DISTANCE_METRIC": "COSINE"
+                    }
+                )
+                
+                # Create the index
+                self.redis_client.ft(self.index_name).create_index(
+                    [text_field, metadata_field, filename_field, doc_id_field, vector_field],
+                    definition=IndexDefinition(prefix=["doc:"], index_type=IndexType.HASH)
+                )
+                logger.info(f"Created new Redis index: {self.index_name}")
+            else:
+                logger.info(f"Using existing Redis index: {self.index_name}")
+                
+        except Exception as e:
+            logger.error(f"Error initializing Redis client: {str(e)}")
+            raise
+    
+    def add_documents(self, documents: List[LangchainDocument]) -> List[str]:
+        """Add documents to the vector store."""
+        try:
+            if not documents:
+                return []
+            
+            # Extract texts and metadata
+            texts = [doc.page_content for doc in documents]
+            doc_metadata = [doc.metadata for doc in documents]
+            
+            # Generate embeddings
+            embeddings = self.embedding_service.embed_texts(texts)
+            
+            # Prepare pipeline for batch insert
+            pipe = self.redis_client.pipeline()
+            doc_ids = []
+            
+            # Insert each document
+            for i, (doc, metadata, embedding) in enumerate(zip(documents, doc_metadata, embeddings)):
+                # Generate a unique ID
+                doc_id = f"doc:{str(uuid.uuid4())}"
+                doc_ids.append(doc_id)
+                
+                # Convert metadata to JSON string
+                metadata_json = json.dumps(metadata)
+                filename = metadata.get('filename', 'Unknown')
+                
+                # Store the document with its embedding
+                pipe.hset(
+                    doc_id,
+                    mapping={
+                        "content": doc.page_content,
+                        "metadata": metadata_json,
+                        "filename": filename,
+                        "doc_id": doc_id.replace("doc:", ""),
+                        self.vector_field_name: np.array(embedding, dtype=np.float32).tobytes()
+                    }
+                )
+            
+            # Execute the pipeline
+            pipe.execute()
+            
+            logger.info(f"Added {len(documents)} documents to Redis index")
+            return [doc_id.replace("doc:", "") for doc_id in doc_ids]
+            
+        except Exception as e:
+            logger.error(f"Error adding documents to Redis index: {str(e)}")
+            raise
+    
+    def similarity_search(
+        self, 
+        query: str, 
+        k: int = 5, 
+        similarity_threshold: float = 0.7,
+        filter_metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[LangchainDocument, float]]:
+        """Search for similar documents."""
+        try:
+            # Generate query embedding
+            query_embedding = self.embedding_service.embed_query(query)
+            query_vector = np.array(query_embedding, dtype=np.float32)
+            
+            # Build Redis query
+            base_query = f"*=>[KNN {k} @{self.vector_field_name} $vector AS score]"
+            
+            # Add metadata filters if provided
+            if filter_metadata:
+                for key, value in filter_metadata.items():
+                    base_query += f" @metadata:{key}:{value}"
+            
+            # Create query object
+            redis_query = Query(base_query)\
+                .sort_by("score")\
+                .dialect(2)\
+                .return_fields("content", "metadata", "score", "filename")\
+                .paging(0, k)
+                
+            # Execute the query
+            query_params = {"vector": query_vector.tobytes()}
+            results = self.redis_client.ft(self.index_name).search(redis_query, query_params)
+            
+            # Process results
+            output = []
+            for doc in results.docs:
+                score = float(doc.score)
+                
+                # Skip if below threshold
+                if score < similarity_threshold:
+                    continue
+                
+                # Extract content and metadata
+                content = doc.content
+                try:
+                    metadata = json.loads(doc.metadata)
+                except:
+                    metadata = {"filename": doc.filename}
+                
+                # Create LangChain document
+                langchain_doc = LangchainDocument(page_content=content, metadata=metadata)
+                
+                # Append to results
+                output.append((langchain_doc, score))
+            
+            logger.info(f"Found {len(output)} similar documents for query in Redis")
+            return output
+            
+        except Exception as e:
+            logger.error(f"Error searching Redis index: {str(e)}")
+            raise
+    
+    def delete_documents(self, document_ids: List[str]) -> bool:
+        """Delete documents from the vector store."""
+        try:
+            pipe = self.redis_client.pipeline()
+            
+            for doc_id in document_ids:
+                pipe.delete(f"doc:{doc_id}")
+            
+            pipe.execute()
+            logger.info(f"Deleted {len(document_ids)} documents from Redis index")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting documents from Redis: {str(e)}")
+            return False
+    
+    def get_document_count(self) -> int:
+        """Get the number of documents in the store."""
+        try:
+            info = self.redis_client.ft(self.index_name).info()
+            return info['num_docs']
+        except Exception as e:
+            logger.error(f"Error getting document count from Redis: {str(e)}")
+            return 0
+
 class VectorStoreManager:
     def __init__(self):
-        self.stores: Dict[str, FAISSVectorStore] = {}
+        self.stores: Dict[str, Any] = {}  # Changed to Any to support multiple vector store types
 
-    def get_store(self, collection_name: str, config: VectorStoreConfig, embedding_service: EmbeddingService) -> FAISSVectorStore:
+    def get_store(self, collection_name: str, config: VectorStoreConfig, embedding_service: EmbeddingService) -> Any:
         """Get or create a vector store for a collection."""
         if collection_name not in self.stores:
-            # Create collection-specific config
-            collection_config = VectorStoreConfig(
-                type=config.type,
-                index_path=f"{config.index_path}/{collection_name}",
-                dimension=config.dimension
-            )
-            self.stores[collection_name] = FAISSVectorStore(collection_config, embedding_service)
+            # Create collection-specific config with updated paths for collection
+            if config.type == VectorStore.FAISS:
+                # For FAISS, we need to update the index path for the specific collection
+                collection_config = VectorStoreConfig(
+                    type=config.type,
+                    index_path=f"{config.index_path}/{collection_name}",
+                    dimension=config.dimension,
+                    # Include Redis settings to avoid validation errors
+                    redis_host=config.redis_host,
+                    redis_port=config.redis_port,
+                    redis_password=config.redis_password,
+                    redis_index_name=config.redis_index_name
+                )
+                self.stores[collection_name] = FAISSVectorStore(collection_config, embedding_service)
+                
+            elif config.type == VectorStore.REDIS:
+                # For Redis, use collection name as part of index name
+                collection_config = VectorStoreConfig(
+                    type=config.type,
+                    index_path=config.index_path,  # Not needed for Redis but keep for consistency
+                    dimension=config.dimension,
+                    redis_host=config.redis_host,
+                    redis_port=config.redis_port,
+                    redis_password=config.redis_password,
+                    # Use collection name in the index name
+                    redis_index_name=f"{config.redis_index_name}-{collection_name}"
+                )
+                self.stores[collection_name] = RedisVectorStore(collection_config, embedding_service)
+            else:
+                raise ValueError(f"Unsupported vector store type: {config.type}")
+                
+            logger.info(f"Created new vector store of type {config.type} for collection {collection_name}")
         
         return self.stores[collection_name]
 
@@ -204,7 +424,14 @@ class VectorStoreManager:
     def delete_collection(self, collection_name: str) -> bool:
         """Delete a collection."""
         if collection_name in self.stores:
+            # Get the store instance before removing it
+            store = self.stores[collection_name]
+            
+            # For Redis, we might want to clean up the index
+            if isinstance(store, RedisVectorStore):
+                # Optionally implement index cleanup if needed
+                pass
+                
             del self.stores[collection_name]
-            # Also delete files if needed
             return True
         return False

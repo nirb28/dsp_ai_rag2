@@ -14,6 +14,7 @@ class ChunkingStrategy(str, Enum):
 
 class VectorStore(str, Enum):
     FAISS = "faiss"
+    REDIS = "redis"
 
 class EmbeddingModel(str, Enum):
     SENTENCE_TRANSFORMERS_ALL_MINILM = "sentence-transformers/all-MiniLM-L6-v2"
@@ -50,8 +51,13 @@ class ChunkingConfig(BaseModel):
 
 class VectorStoreConfig(BaseModel):
     type: VectorStore = VectorStore.FAISS
-    index_path: str = Field(default="./storage/faiss_index")
-    dimension: int = Field(default=384, ge=128, le=1536)
+    index_path: str = Field(default="./storage/faiss_index", description="Path for FAISS index files")
+    dimension: int = Field(default=384, ge=128, le=1536, description="Embedding dimension")
+    # Redis specific configuration
+    redis_host: str = Field(default="localhost", description="Redis server hostname")
+    redis_port: int = Field(default=6379, description="Redis server port")
+    redis_password: Optional[str] = Field(default=None, description="Redis password if authentication is required")
+    redis_index_name: str = Field(default="document-index", description="Redis search index name")
 
 class EmbeddingConfig(BaseModel):
     model: EmbeddingModel = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM
@@ -110,6 +116,8 @@ class Settings:
     LOCAL_MODELS_PATH: str = os.getenv("LOCAL_MODELS_PATH", "./models")
     # Triton model settings
     TRITON_LLM_MODEL: str = os.getenv("TRITON_LLM_MODEL", "llama3-vllm")
+    # Redis settings
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 settings = Settings()
 
