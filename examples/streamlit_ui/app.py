@@ -271,11 +271,17 @@ def main():
     # Initialize the global columns
     global col1, col2, col3, col4
     
-    # Render the sidebar (outside columns)
-    render_sidebar()
-    
-    # Create a simple two-column layout
+    # Create a simple two-column layout first
+    # This ensures col4 is initialized before any status messages are displayed
     col1, col4 = st.columns([7, 3])
+    
+    # Add content to the status column
+    with col4:
+        st.subheader("Status Messages")
+        st.markdown("""<div style='height: 10px;'></div>""", unsafe_allow_html=True)
+    
+    # Now render the sidebar (after columns are initialized)
+    render_sidebar()
     
     # Add content to the main column
     with col1:
@@ -289,11 +295,6 @@ def main():
         if st.button("Clear Chat"):
             st.session_state.messages = []
             st.experimental_rerun()
-    
-    # Add content to the status column
-    with col4:
-        st.subheader("Status Messages")
-        st.markdown("""<div style='height: 10px;'></div>""", unsafe_allow_html=True)
     
     # Initialize or fetch configurations
     if "configurations" not in st.session_state or not st.session_state.configurations:

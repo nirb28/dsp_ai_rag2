@@ -49,11 +49,24 @@ cp .env.example .env
 ```
 
 5. **Run the application**:
+
+You can run individual services:
 ```bash
+# Run the API server
 python -m app.main
+
+# Run the model server
+python -m app.model_server
 ```
 
-The API will be available at `http://localhost:8000` with documentation at `http://localhost:8000/docs`.
+Or use the unified startup script to run all services together:
+```bash
+python scripts/start_all.py
+```
+
+For more information about the startup script options, see `scripts/README_START_SERVICES.md`.
+
+The API will be available at `http://localhost:9000` with documentation at `http://localhost:9000/docs`.
 
 ## Configuration
 
