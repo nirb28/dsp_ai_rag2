@@ -48,6 +48,7 @@ class QueryRequest(BaseModel):
     similarity_threshold: Optional[float] = Field(default=0.7, ge=0.0, le=1.0)
     include_metadata: bool = True
     context_items: Optional[List[ContextItem]] = Field(default=None, description="Additional context for context injection (e.g. chat history)")
+    config: Optional[Dict[str, Any]] = Field(default=None, description="Optional partial config overrides for generation endpoint, embedding endpoint, or vector store")
 
 class QueryResponse(BaseModel):
     query: str

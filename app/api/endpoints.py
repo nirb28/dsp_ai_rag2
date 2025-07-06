@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse
@@ -128,8 +129,25 @@ async def query_documents(request: QueryRequest):
     Uses reranking if configured for the configuration.
     """
     try:
-        # Check if reranking and context injection are enabled for this collection
+        # Get original configuration
         config = rag_service.get_configuration(request.configuration_name)
+        temp_config = None
+        
+        # Apply config overrides if provided
+        if request.config:
+            # Create a temporary configuration with overrides
+            temp_config_dict = config.dict()
+            temp_config_dict.update(request.config)
+            try:
+                from app.config import RAGConfig
+                temp_config = RAGConfig(**temp_config_dict)
+                # Use temporary config for this request
+                config = temp_config
+                logger.info(f"Using configuration overrides for query request")
+            except Exception as e:
+                logger.warning(f"Invalid config override: {str(e)}")
+        
+        # Check if reranking and context injection are enabled for this configuration
         reranking_enabled = hasattr(config, 'reranking') and config.reranking and config.reranking.enabled
         context_enabled = hasattr(config, 'context_injection') and config.context_injection and config.context_injection.enabled
         
@@ -149,7 +167,8 @@ async def query_documents(request: QueryRequest):
             configuration_name=request.configuration_name,
             k=request.k,
             similarity_threshold=request.similarity_threshold,
-            context_items=request.context_items
+            context_items=request.context_items,
+            config_override=config if temp_config else None
         )
         
         # Filter metadata if requested
@@ -162,6 +181,7 @@ async def query_documents(request: QueryRequest):
     except Exception as e:
         logger.error(f"Error processing query: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 @router.post("/configurations", response_model=ConfigurationResponse)
 async def add_configuration(request: ConfigurationRequest):
@@ -199,6 +219,29 @@ async def get_configuration(configuration_name: str):
     except Exception as e:
         logger.error(f"Error getting configuration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.get("/debug/configurations")
+async def debug_configurations():
+    """Debug endpoint to list all configurations and their details"""
+    try:
+        # Get list of configurations from RAG service
+        rag_configs = rag_service.get_configurations()
+        
+        # Get configurations known to the vector store manager
+        vector_store_configs = rag_service.vector_store_manager.list_configurations()
+        
+        # Return detailed info
+        return {
+            "rag_configs": rag_configs,
+            "vector_store_configs": vector_store_configs,
+            "configuration_names": list(rag_service.configurations.keys()),
+            "postman_test_exists": rag_service.vector_store_manager.configuration_exists("postman_test"),
+            "postman_test_in_rag_configs": "postman_test" in rag_service.configurations,
+            "stores_keys": list(rag_service.vector_store_manager.stores.keys())
+        }
+    except Exception as e:
+        logger.error(f"Error in debug endpoint: {str(e)}")
+        return {"error": str(e)}
 
 @router.get("/configurations", response_model=ConfigurationsResponse)
 async def list_configurations():
@@ -342,8 +385,18 @@ async def retrieve_documents(request: RetrieveRequest):
         start_time = time.time()
         configuration_name = request.configuration_name
         
-        # Validate configuration exists
-        if not rag_service.vector_store_manager.collection_exists(configuration_name):
+        # Check if configuration exists in RAG service but not in vector store manager
+        if configuration_name in rag_service.configurations and not rag_service.vector_store_manager.configuration_exists(configuration_name):
+            logger.info(f"Configuration '{configuration_name}' exists in RAG service but not in vector store manager. Initializing vector store.")
+            # Initialize the vector store by accessing it
+            try:
+                # This will create the vector store if it doesn't exist
+                rag_service._get_vector_store(configuration_name)
+            except Exception as e:
+                logger.error(f"Error initializing vector store for {configuration_name}: {str(e)}")
+        
+        # Validate configuration exists in vector store manager
+        if not rag_service.vector_store_manager.configuration_exists(configuration_name):
             raise HTTPException(
                 status_code=404, 
                 detail=f"Configuration '{configuration_name}' not found"

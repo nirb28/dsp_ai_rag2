@@ -307,3 +307,131 @@ def test_delete_configuration_not_found(mock_delete, client):
     
     response = client.delete("/api/v1/configurations/nonexistent")
     assert response.status_code == 404
+
+
+@patch('app.services.vector_store.FAISSVectorStore.similarity_search')
+def test_retrieve_documents_basic(mock_similarity_search, client):
+    """Test basic document retrieval without generating a response."""
+    from langchain.schema import Document
+    
+    # Mock the similarity_search method
+    mock_similarity_search.return_value = [
+        (Document(page_content="test content 1", metadata={"filename": "doc1.txt"}), 0.95),
+        (Document(page_content="test content 2", metadata={"filename": "doc2.txt"}), 0.85)
+    ]
+    
+    # Mock the rag_service.vector_store_manager.configuration_exists method to return True
+    with patch('app.api.endpoints.rag_service.vector_store_manager.configuration_exists', return_value=True):
+        response = client.post(
+            "/api/v1/retrieve",
+            json={
+                "query": "test query",
+                "configuration_name": "default",
+                "k": 5,
+                "similarity_threshold": 0.7,
+                "include_metadata": True
+            }
+        )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["query"] == "test query"
+    assert len(data["documents"]) == 2
+    assert data["documents"][0]["content"] == "test content 1"
+    assert data["documents"][0]["similarity_score"] == 0.95
+    assert "metadata" in data["documents"][0]
+    assert data["configuration_name"] == "default"
+    assert data["total_found"] == 2
+
+
+@patch('app.services.vector_store.FAISSVectorStore.similarity_search')
+def test_retrieve_documents_with_config_override(mock_similarity_search, client):
+    """Test document retrieval with config override."""
+    from langchain.schema import Document
+    
+    # Mock the similarity_search method
+    mock_similarity_search.return_value = [
+        (Document(page_content="test content 1", metadata={"filename": "doc1.txt"}), 0.95),
+        (Document(page_content="test content 2", metadata={"filename": "doc2.txt"}), 0.85)
+    ]
+    
+    # Create a config override that changes embedding settings
+    config_override = {
+        "embedding": {
+            "model": "custom-embedding-model",
+            "dimensions": 768
+        }
+    }
+    
+    # Mock the rag_service.vector_store_manager.configuration_exists method to return True
+    with patch('app.api.endpoints.rag_service.vector_store_manager.configuration_exists', return_value=True):
+        with patch('app.services.embedding_service.EmbeddingService') as mock_embedding:
+            response = client.post(
+                "/api/v1/retrieve",
+                json={
+                    "query": "test query",
+                    "configuration_name": "default",
+                    "k": 5,
+                    "similarity_threshold": 0.7,
+                    "include_metadata": True,
+                    "config": config_override
+                }
+            )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["query"] == "test query"
+    assert len(data["documents"]) == 2
+    assert data["configuration_name"] == "default"
+
+
+@patch('app.services.rag_service.RAGService.query')
+def test_query_documents_with_config_override(mock_query, client):
+    """Test document query with config override."""
+    from app.models import QueryResponse
+    
+    # Mock the query method
+    mock_response = QueryResponse(
+        query="test query",
+        answer="test answer with custom configuration",
+        sources=[
+            {
+                "content": "test content",
+                "metadata": {"filename": "test.txt"},
+                "similarity_score": 0.9
+            }
+        ],
+        processing_time=0.5,
+        configuration_name="default"
+    )
+    mock_query.return_value = mock_response
+    
+    # Create a config override that changes generation settings
+    config_override = {
+        "generation": {
+            "provider": "openai_compatible",
+            "model": "custom-model",
+            "temperature": 0.2
+        }
+    }
+    
+    response = client.post(
+        "/api/v1/query",
+        json={
+            "query": "test query",
+            "configuration_name": "default",
+            "include_metadata": True,
+            "config": config_override
+        }
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["query"] == "test query"
+    assert data["answer"] == "test answer with custom configuration"
+    assert len(data["sources"]) == 1
+    
+    # Verify the config_override parameter was passed to the query method
+    mock_query.assert_called_once()
+    kwargs = mock_query.call_args.kwargs
+    assert "config_override" in kwargs and kwargs["config_override"] is not None

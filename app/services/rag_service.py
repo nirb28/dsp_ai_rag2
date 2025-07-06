@@ -182,30 +182,49 @@ class RAGService:
         configuration_name: str = "default",
         k: Optional[int] = None,
         similarity_threshold: Optional[float] = None,
-        context_items: Optional[List[Dict[str, Any]]] = None
+        context_items: Optional[List[Dict[str, Any]]] = None,
+        config_override: Optional[RAGConfig] = None
     ) -> QueryResponse:
         """Query the RAG system with optional context injection and reranking.
+    
+    Args:
+        query: The user query string
+        configuration_name: The configuration to search in
+        k: Number of results to retrieve (overrides config)
+        similarity_threshold: Minimum similarity score for retrieval (overrides config)
+        context_items: Optional list of additional context items to include with the retrieved documents
+        config_override: Optional RAGConfig object to override the configuration settings for this query
+                        (can be used to override generation endpoint, embedding endpoint, or vector store)
         
-        Args:
-            query: The user query string
-            configuration_name: The configuration to search in
-            k: Number of results to retrieve (overrides config)
-            similarity_threshold: Minimum similarity score for retrieval (overrides config)
-            context_items: Optional list of additional context items to include with the retrieved documents
-            
-        Returns:
-            QueryResponse with answer and sources
-        """
+    Returns:
+        QueryResponse with answer and sources
+    """
         start_time = time.time()
         
         try:
-            # Get configuration
-            config = self.get_configuration(configuration_name)
-            vector_store = self._get_vector_store(configuration_name)
-            embedding_service = self._get_embedding_service(configuration_name)
-            generation_service = self._get_generation_service(configuration_name)
-            reranker_service = self._get_reranker_service(configuration_name)
+            # Get configuration, use override if provided
+            config = config_override if config_override else self.get_configuration(configuration_name)
             
+            # Get the standard vector store for the configuration name
+            vector_store = self._get_vector_store(configuration_name)
+            
+            # Use services based on overridden config if provided, otherwise use standard services
+            if config_override:
+                logger.info(f"Using configuration overrides for query")
+                # Create services from override config
+                from app.services.embedding_service import EmbeddingService
+                from app.services.generation_service import GenerationServiceFactory
+                from app.services.reranker_service import RerankerService
+                
+                embedding_service = EmbeddingService(config.embedding)
+                generation_service = GenerationServiceFactory.create_service(config.generation)
+                reranker_service = RerankerService(config.reranking if hasattr(config, 'reranking') else None)
+            else:
+                # Use standard services
+                embedding_service = self._get_embedding_service(configuration_name)
+                generation_service = self._get_generation_service(configuration_name)
+                reranker_service = self._get_reranker_service(configuration_name)
+                
             # Use config defaults if not provided
             k = k or config.retrieval_k
             similarity_threshold = similarity_threshold or config.similarity_threshold
