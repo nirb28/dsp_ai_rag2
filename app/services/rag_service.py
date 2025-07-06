@@ -76,11 +76,20 @@ class RAGService:
             return False
 
     def get_configuration(self, configuration_name: str) -> RAGConfig:
-        """Get configuration for a configuration."""
+        """Get configuration for a configuration.
+        
+        Args:
+            configuration_name: Name of the configuration to retrieve
+            
+        Returns:
+            The configuration if it exists
+            
+        Raises:
+            KeyError: If the configuration does not exist
+        """
         if configuration_name not in self.configurations:
-            # Use default configuration
-            self.configurations[configuration_name] = RAGConfig(configuration_name=configuration_name)
-            self._save_configurations()
+            # Configuration doesn't exist
+            raise KeyError(f"Configuration '{configuration_name}' not found")
         
         return self.configurations[configuration_name]
 

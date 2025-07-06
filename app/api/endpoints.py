@@ -216,6 +216,9 @@ async def get_configuration(configuration_name: str):
             "configuration_name": configuration_name,
             "config": config.dict()
         }
+    except KeyError:
+        # Return 404 when configuration doesn't exist
+        raise HTTPException(status_code=404, detail=f"Configuration '{configuration_name}' not found")
     except Exception as e:
         logger.error(f"Error getting configuration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
