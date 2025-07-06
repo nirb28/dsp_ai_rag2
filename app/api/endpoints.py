@@ -487,3 +487,22 @@ async def retrieve_documents(request: RetrieveRequest):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # Preset application endpoint has been removed
+
+@router.post("/configurations/reload")
+async def reload_configurations():
+    """Reload configurations from file.
+    
+    This endpoint forces the server to reload all configurations from the storage file,
+    discarding any in-memory changes that haven't been saved.
+    """
+    try:
+        success = rag_service.reload_configurations()
+        
+        if success:
+            return {"message": "Configurations reloaded successfully", "status": "success"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to reload configurations")
+            
+    except Exception as e:
+        logger.error(f"Error reloading configurations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

@@ -343,3 +343,24 @@ class RAGService:
         except Exception as e:
             logger.error(f"Error deleting configuration: {str(e)}")
             return False
+
+    def reload_configurations(self) -> bool:
+        """Reload configurations from file."""
+        try:
+            # Clear existing configurations
+            self.configurations = {}
+            
+            # Clear cached services
+            self.embedding_services = {}
+            self.generation_services = {}
+            self.reranker_services = {}
+            
+            # Reload configurations from file
+            self._load_configurations()
+            
+            logger.info(f"Reloaded configurations. Found {len(self.configurations)} configurations.")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error reloading configurations: {str(e)}")
+            return False
