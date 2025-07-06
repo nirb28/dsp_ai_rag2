@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 # API base URL
-BASE_URL = "http://localhost:8000/api/v1"
+BASE_URL = "http://localhost:9000/api/v1"
 
 def check_health():
     """Check if the API is running."""
@@ -68,7 +68,8 @@ def create_sample_document():
     
     return sample_file
 
-def upload_document(file_path, configuration_name="default", metadata=None):
+def 
+pload_document(file_path, configuration_name="default", metadata=None):
     """Upload a document to the RAG system."""
     print(f"📄 Uploading document: {file_path}")
     

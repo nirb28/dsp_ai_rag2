@@ -356,13 +356,12 @@ if __name__ == "__main__":
                     "server_url": "http://zahrt.sas.upenn.edu:9001"
                 },
                 "generation": {
-                    "model": "llama3-8b-8192",
-                    "provider": "groq",
+                    "model": "llama-vllm", #llama3-8b-8192
+                    "provider": "triton",
                     "temperature": 0.7,
                     "max_tokens": 1024,
                     "top_p": 0.9,
-                    "top_k": null,
-                    "server_url": "http://localhost:8000"
+                    "server_url": "http://zahrt.sas.upenn.edu:8000"
                 },                
             }
             
