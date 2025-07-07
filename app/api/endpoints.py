@@ -6,6 +6,9 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse
 import logging
 
+# Import the documentation router
+from app.api.documentation import router as documentation_router
+
 from app.models import (
     DocumentUploadResponse, QueryRequest, QueryResponse, 
     ConfigurationRequest, ConfigurationResponse, HealthResponse,
@@ -37,6 +40,9 @@ if not hasattr(FAISSVectorStore, 'get_all_documents'):
     FAISSVectorStore.get_all_documents = get_all_documents
 
 router = APIRouter()
+
+# Include documentation router
+router.include_router(documentation_router, prefix="/documentation")
 
 # Global RAG service instance
 rag_service = RAGService()

@@ -94,7 +94,14 @@ async def root():
         "message": "RAG as a Service API",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/api/v1/health"
+        "health": "/api/v1/health",
+        "documentation": {
+            "chunking_strategies": "/api/v1/documentation/chunking-strategies",
+            "embedding_models": "/api/v1/documentation/embedding-models",
+            "vector_stores": "/api/v1/documentation/vector-stores",
+            "reranker_models": "/api/v1/documentation/reranker-models",
+            "mcp_integration": "/api/v1/documentation/mcp-integration"
+        }
     }
 
 if __name__ == "__main__":
