@@ -503,6 +503,143 @@ async def retrieve_documents(request: RetrieveRequest):
 
 # Preset application endpoint has been removed
 
+@router.delete("/documents")
+async def delete_all_documents(configuration_name: str = Query(...), confirm: bool = Query(False)):
+    """Delete all documents and their chunks from a configuration.
+    
+    Args:
+        configuration_name: The configuration to delete documents from
+        confirm: Must be set to true to confirm the deletion
+        
+    Returns:
+        Results of the deletion operation
+    """
+    try:
+        # Require explicit confirmation to prevent accidental deletion
+        if not confirm:
+            raise HTTPException(
+                status_code=400, 
+                detail="Deletion requires confirmation. Set confirm=true query parameter."
+            )
+            
+        vector_store = rag_service._get_vector_store(configuration_name)
+        
+        # For FAISS store
+        if hasattr(vector_store, 'documents'):
+            # Get the count before deletion
+            doc_count = len(vector_store.documents)
+            
+            # Clear documents and metadata
+            vector_store.documents = []
+            
+            if hasattr(vector_store, 'metadata'):
+                vector_store.metadata = []
+                
+            # Create new empty index
+            if hasattr(vector_store, 'embedding_service') and hasattr(vector_store, 'dimension'):
+                import faiss
+                vector_store.index = faiss.IndexFlatIP(vector_store.dimension)
+                
+            # Save empty index
+            if hasattr(vector_store, '_save_index'):
+                vector_store._save_index()
+                
+            return {
+                "message": f"Successfully deleted all documents ({doc_count}) from configuration '{configuration_name}'",
+                "deleted_count": doc_count,
+                "configuration_name": configuration_name
+            }
+            
+        # For Redis store
+        elif hasattr(vector_store, 'redis_client') and hasattr(vector_store, 'index_name'):
+            # Get all keys
+            all_keys = vector_store.redis_client.keys(f"doc:*")
+            key_count = len(all_keys)
+            
+            if key_count > 0:
+                # Delete all keys
+                pipe = vector_store.redis_client.pipeline()
+                for key in all_keys:
+                    pipe.delete(key)
+                pipe.execute()
+                
+                # Recreate index
+                try:
+                    vector_store.redis_client.ft(vector_store.index_name).dropindex()
+                    # The _initialize_client method would normally be called to recreate the index
+                    if hasattr(vector_store, '_initialize_client'):
+                        vector_store._initialize_client()
+                except:
+                    logger.warning(f"Could not drop Redis index: {vector_store.index_name}")
+                
+            return {
+                "message": f"Successfully deleted all documents ({key_count}) from configuration '{configuration_name}'",
+                "deleted_count": key_count,
+                "configuration_name": configuration_name
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Unsupported vector store type for deletion: {type(vector_store).__name__}"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting all documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting all documents: {str(e)}")
+
+
+@router.get("/documents")
+async def list_documents(configuration_name: str = Query(...)):
+    """List all unique documents in a configuration.
+    
+    Args:
+        configuration_name: The configuration to list documents from
+        
+    Returns:
+        List of unique document IDs and their metadata
+    """
+    try:
+        vector_store = rag_service._get_vector_store(configuration_name)
+        
+        # Get all documents
+        all_documents = vector_store.get_all_documents(limit=10000)  # Use a high limit to get most documents
+        
+        # Track unique document IDs and collect metadata
+        unique_documents = {}
+        for doc in all_documents:
+            doc_id = doc.metadata.get('document_id')
+            if not doc_id:
+                continue
+                
+            if doc_id not in unique_documents:
+                # Initialize with basic metadata from first chunk
+                unique_documents[doc_id] = {
+                    'document_id': doc_id,
+                    'filename': doc.metadata.get('filename', 'Unknown'),
+                    'chunk_count': 1
+                }
+                
+                # Add any other useful metadata
+                for key, value in doc.metadata.items():
+                    if key not in ['document_id', 'chunk']:
+                        unique_documents[doc_id][key] = value
+            else:
+                # Increment chunk count for existing documents
+                unique_documents[doc_id]['chunk_count'] += 1
+        
+        return {
+            'configuration_name': configuration_name,
+            'document_count': len(unique_documents),
+            'documents': list(unique_documents.values())
+        }
+        
+    except Exception as e:
+        logger.error(f"Error listing documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing documents: {str(e)}")
+
+
 @router.get("/documents/{document_id}/chunks")
 async def get_document_chunks(document_id: str, configuration_name: str = Query(...)):
     """Retrieve all chunks of a specific document.
