@@ -296,13 +296,14 @@ async def delete_configuration(configuration_name: str):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/debug/{configuration_name}")
-async def debug_configuration(configuration_name: str, limit: int = 10, show_vectors: bool = False):
+async def debug_configuration(configuration_name: str, limit: int = 10, show_vectors: bool = False, show_text: bool = True):
     """Debug endpoint to inspect the vectors and chunks in a configuration.
     
     Args:
         configuration_name: Name of the configuration to inspect
         limit: Maximum number of chunks to return
         show_vectors: Whether to include embedding vectors in the response
+        show_text: Whether to include the full text of chunks in the response
         
     Returns:
         Dictionary containing chunks and their metadata from the configuration
@@ -347,11 +348,14 @@ async def debug_configuration(configuration_name: str, limit: int = 10, show_vec
         chunks_data = []
         for i, chunk in enumerate(chunks):
             chunk_data = {
-                "text": chunk.page_content,
                 "metadata": chunk.metadata,
                 "text_length": len(chunk.page_content),
                 "text_preview": chunk.page_content[:100] + '...' if len(chunk.page_content) > 100 else chunk.page_content
             }
+            
+            # Include full text only if show_text is True
+            if show_text:
+                chunk_data["text"] = chunk.page_content
             
             # Add embedding from our direct extraction if available
             if show_vectors and vectors and i < len(vectors):
