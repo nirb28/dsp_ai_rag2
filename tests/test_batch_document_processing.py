@@ -348,21 +348,24 @@ if __name__ == "__main__":
                     "chunk_overlap": 200
                 },
                 "vector_store": {
-                    "type": "faiss"
+                    "type": "faiss",
+                    "index_path": "./storage/faiss_index",
+                    "dimension": 384
                 },
                 "embedding": {
                     "model": "sentence-transformers/all-MiniLM-L6-v2",
-                    "batch_size": 64,
+                    "batch_size": 32,
                     "server_url": "http://zahrt.sas.upenn.edu:9001"
                 },
                 "generation": {
-                    "model": "llama-vllm", #llama3-8b-8192
+                    "model": "llama3-vllm",
                     "provider": "triton",
                     "temperature": 0.7,
                     "max_tokens": 1024,
                     "top_p": 0.9,
+                    "top_k": 5,
                     "server_url": "http://zahrt.sas.upenn.edu:8000"
-                },                
+                }
             }
             
             configuration_name = f"batch_{args.folder}_test"

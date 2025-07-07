@@ -1,8 +1,10 @@
 import os
 import tempfile
 import time
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+import json
+import numpy as np
+from typing import Optional, Dict, Any, List
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse
 import logging
 
@@ -496,6 +498,145 @@ async def retrieve_documents(request: RetrieveRequest):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # Preset application endpoint has been removed
+
+@router.get("/documents/{document_id}/chunks")
+async def get_document_chunks(document_id: str, configuration_name: str = Query(...)):
+    """Retrieve all chunks of a specific document.
+    
+    Args:
+        document_id: The ID of the document to retrieve chunks for
+        configuration_name: The configuration where the document is stored
+        
+    Returns:
+        Dictionary containing all chunks of the document
+    """
+    try:
+        vector_store = rag_service._get_vector_store(configuration_name)
+        
+        # Get all documents
+        all_documents = vector_store.get_all_documents(limit=1000)  # Adjust limit as needed
+        
+        # Filter by document_id in metadata
+        document_chunks = [
+            {
+                'content': doc.page_content,
+                'metadata': doc.metadata
+            }
+            for doc in all_documents
+            if doc.metadata.get('document_id') == document_id
+        ]
+        
+        return {
+            'document_id': document_id,
+            'configuration_name': configuration_name,
+            'chunk_count': len(document_chunks),
+            'chunks': document_chunks
+        }
+        
+    except Exception as e:
+        logger.error(f"Error retrieving document chunks: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving document chunks: {str(e)}")
+
+
+@router.delete("/documents/{document_id}/chunks")
+async def delete_document_chunks(document_id: str, configuration_name: str = Query(...)):
+    """Delete all chunks of a specific document.
+    
+    Args:
+        document_id: The ID of the document to delete chunks for
+        configuration_name: The configuration where the document is stored
+        
+    Returns:
+        Dictionary with deletion results
+    """
+    try:
+        vector_store = rag_service._get_vector_store(configuration_name)
+        
+        # For FAISS store
+        if hasattr(vector_store, 'documents'):
+            # Find indices of documents to delete
+            indices_to_delete = [
+                i for i, doc in enumerate(vector_store.documents)
+                if doc.metadata.get('document_id') == document_id
+            ]
+            
+            if not indices_to_delete:
+                return {"message": f"No chunks found for document ID: {document_id}", "deleted": 0}
+            
+            # Create a new list of documents excluding the ones to delete
+            vector_store.documents = [
+                doc for i, doc in enumerate(vector_store.documents) 
+                if i not in indices_to_delete
+            ]
+            
+            # Update metadata list to match documents
+            if hasattr(vector_store, 'metadata') and len(vector_store.metadata) >= len(indices_to_delete):
+                vector_store.metadata = [
+                    meta for i, meta in enumerate(vector_store.metadata)
+                    if i not in indices_to_delete
+                ]
+            
+            # Rebuild the index (simplified approach - rebuild from scratch)
+            if hasattr(vector_store, 'embedding_service') and vector_store.documents:
+                # Extract texts
+                texts = [doc.page_content for doc in vector_store.documents]
+                
+                # Generate new embeddings
+                embeddings = vector_store.embedding_service.embed_texts(texts)
+                embeddings_array = np.array(embeddings, dtype=np.float32)
+                
+                # Normalize embeddings for cosine similarity
+                import faiss
+                faiss.normalize_L2(embeddings_array)
+                
+                # Create new index
+                vector_store.index = faiss.IndexFlatIP(vector_store.dimension)
+                vector_store.index.add(embeddings_array)
+            
+            # Save index
+            if hasattr(vector_store, '_save_index'):
+                vector_store._save_index()
+            
+            return {
+                "message": f"Successfully deleted {len(indices_to_delete)} chunks for document ID: {document_id}",
+                "deleted": len(indices_to_delete)
+            }
+            
+        # For Redis store
+        elif hasattr(vector_store, 'redis_client'):
+            # Redis supports metadata filtering
+            all_keys = vector_store.redis_client.keys(f"doc:*")
+            doc_ids_to_delete = []
+            
+            for key in all_keys:
+                doc_data = vector_store.redis_client.hgetall(key)
+                if doc_data and b'metadata' in doc_data:
+                    try:
+                        metadata = json.loads(doc_data[b'metadata'].decode('utf-8'))
+                        if metadata.get('document_id') == document_id:
+                            doc_ids_to_delete.append(key.decode('utf-8').replace('doc:', ''))
+                    except json.JSONDecodeError:
+                        logger.warning(f"Invalid metadata JSON for key: {key}")
+                        continue
+            
+            if doc_ids_to_delete:
+                vector_store.delete_documents(doc_ids_to_delete)
+                return {
+                    "message": f"Successfully deleted {len(doc_ids_to_delete)} chunks for document ID: {document_id}",
+                    "deleted": len(doc_ids_to_delete)
+                }
+            else:
+                return {"message": f"No chunks found for document ID: {document_id}", "deleted": 0}
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Unsupported vector store type for deletion: {type(vector_store).__name__}"
+            )
+        
+    except Exception as e:
+        logger.error(f"Error deleting document chunks: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting document chunks: {str(e)}")
+
 
 @router.post("/configurations/reload")
 async def reload_configurations():
