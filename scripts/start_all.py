@@ -71,7 +71,8 @@ def start_api_server():
     logging.info(message)
     
     api_process = subprocess.Popen(
-        [sys.executable, str(API_PATH)],
+        [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", 
+         "--port", str(API_PORT), "--log-level", "info"],
         cwd=REPO_ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -93,7 +94,8 @@ def start_model_server():
     logging.info(message)
     
     model_server_process = subprocess.Popen(
-        [sys.executable, str(MODEL_SERVER_PATH)],
+        [sys.executable, "-m", "uvicorn", "app.model_server:app", "--host", "0.0.0.0", 
+         "--port", str(MODEL_SERVER_PORT), "--log-level", "info"], #, "--reload"
         cwd=REPO_ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -115,7 +117,7 @@ def start_streamlit():
     logging.info(message)
     
     streamlit_process = subprocess.Popen(
-        [sys.executable, "-m", "streamlit", "run", str(STREAMLIT_PATH), "--server.port", str(STREAMLIT_PORT)],
+        [sys.executable, "-m", "streamlit", "run", str(STREAMLIT_PATH), "--server.port", str(STREAMLIT_PORT), "--server.runOnSave=false"],
         cwd=REPO_ROOT / "examples" / "streamlit_ui",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -204,30 +206,6 @@ def open_browser_tabs(args):
     """Open browser tabs for the services"""
     if args.no_browser:
         return
-    
-    time.sleep(3)  # Give services time to start
-    
-    if not args.ui_only and not args.model_only:
-        # Open API docs in browser
-        webbrowser.open(f"http://localhost:{API_PORT}/docs")
-        message = f"Opened API documentation in browser"
-        print(f"{API_COLOR}{message}{RESET_COLOR}")
-        logging.info(message)
-        
-    if not args.ui_only and not args.api_only:
-        # Open Model server docs in browser
-        webbrowser.open(f"http://localhost:{MODEL_SERVER_PORT}/docs")
-        message = f"Opened Model server documentation in browser"
-        print(f"{MODEL_SERVER_COLOR}{message}{RESET_COLOR}")
-        logging.info(message)
-    
-    if not args.api_only and not args.model_only:
-        # Open Streamlit UI in browser
-        webbrowser.open(f"http://localhost:{STREAMLIT_PORT}")
-        message = f"Opened Streamlit UI in browser"
-        print(f"{STREAMLIT_COLOR}{message}{RESET_COLOR}")
-        logging.info(message)
-
 
 def main():
     """Main function to start all services"""

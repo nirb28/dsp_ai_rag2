@@ -195,7 +195,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.model_server:app",
         host="0.0.0.0",
-        port=9001,  # Using a different port than the main app
+        port=9001,
         reload=False,
         log_level="info"
     )

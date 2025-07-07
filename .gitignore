@@ -76,3 +76,4 @@ sample_*.txt
 .env.local
 .env.production
 secrets.json
+logs/
