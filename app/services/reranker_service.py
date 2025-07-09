@@ -1,6 +1,7 @@
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
+import requests
 from sentence_transformers import CrossEncoder
 
 from app.config import RerankerConfig, RerankerModel, settings
@@ -23,7 +24,21 @@ class RerankerService:
             return
             
         try:
-            if self.config.model == RerankerModel.SENTENCE_TRANSFORMERS_CROSS_ENCODER:
+            if self.config.model == RerankerModel.LOCAL_MODEL_SERVER:
+                # Check if model server is reachable
+                server_url = self.config.server_url or settings.MODEL_SERVER_URL
+                if not server_url:
+                    raise ValueError("Server URL not provided for model server reranker")
+                try:
+                    response = requests.get(f"{server_url}/health")
+                    if response.status_code == 200:
+                        logger.info(f"Connected to model server for reranker at {server_url}")
+                    else:
+                        logger.warning(f"Model server returned status code {response.status_code}")
+                except Exception as e:
+                    logger.warning(f"Could not connect to model server: {str(e)}")
+                    
+            elif self.config.model == RerankerModel.SENTENCE_TRANSFORMERS_CROSS_ENCODER:
                 self.model = CrossEncoder(self.config.model.value)
                 logger.info(f"Initialized SentenceTransformers CrossEncoder reranker: {self.config.model.value}")
                 
@@ -61,7 +76,9 @@ class RerankerService:
             return documents
             
         try:
-            if self.config.model == RerankerModel.COHERE_RERANK:
+            if self.config.model == RerankerModel.LOCAL_MODEL_SERVER:
+                return await self._rerank_with_model_server(query, documents)
+            elif self.config.model == RerankerModel.COHERE_RERANK:
                 return await self._rerank_with_cohere(query, documents)
             elif self.model:
                 return self._rerank_with_local_model(query, documents)
@@ -99,6 +116,62 @@ class RerankerService:
         # Return just the documents
         return filtered_docs if filtered_docs else [doc for doc, _ in scored_docs][:1]
     
+    async def _rerank_with_model_server(self, query: str, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Rerank documents using the model server endpoint."""
+        try:
+            # Get the server URL from config or settings
+            server_url = self.config.server_url or settings.MODEL_SERVER_URL
+            endpoint = f"{server_url}/rerank"
+            
+            # Extract document texts
+            document_texts = [doc["content"] for doc in documents]
+            
+            # Determine which model to use
+            model_name = self.config.model_name or "cross-encoder/ms-marco-MiniLM-L-6-v2"
+            
+            # Format the request according to the model server API
+            payload = {
+                "query": query,
+                "documents": document_texts,
+                "model_name": model_name
+            }
+            
+            # Call the model server reranking API
+            response = requests.post(
+                url=endpoint,
+                json=payload,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Model server returned error: {response.status_code}, {response.text}")
+                return documents
+                
+            result = response.json()
+            scores = result["scores"]
+            
+            # Create reranked document list
+            reranked_docs = []
+            for i, score in enumerate(scores):
+                doc = documents[i].copy()
+                # Replace original score with reranking score
+                doc["original_similarity_score"] = doc.get("similarity_score", 0)
+                doc["similarity_score"] = float(score)
+                reranked_docs.append((doc, score))
+            
+            # Sort by score in descending order
+            reranked_docs.sort(key=lambda x: x[1], reverse=True)
+            
+            # Filter by score threshold
+            filtered_docs = [doc for doc, score in reranked_docs if score >= self.config.score_threshold]
+            
+            # Return just the documents
+            return filtered_docs if filtered_docs else [doc for doc, _ in reranked_docs][:1]
+            
+        except Exception as e:
+            logger.error(f"Error with model server reranking: {str(e)}")
+            return documents
+
     async def _rerank_with_cohere(self, query: str, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Rerank documents using Cohere's Rerank API."""
         try:

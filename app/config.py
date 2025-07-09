@@ -42,6 +42,7 @@ class RerankerModel(str, Enum):
     COHERE_RERANK = "cohere-rerank"  # Cohere Rerank API
     BGE_RERANKER = "bge-reranker-large"  # BGE Reranker
     SENTENCE_TRANSFORMERS_CROSS_ENCODER = "cross-encoder/ms-marco-MiniLM-L-6-v2"  # SentenceTransformers cross-encoder
+    LOCAL_MODEL_SERVER = "local-model-server"  # Local model server endpoint
 
 class ChunkingConfig(BaseModel):
     strategy: ChunkingStrategy = ChunkingStrategy.RECURSIVE_TEXT
@@ -70,6 +71,8 @@ class RerankerConfig(BaseModel):
     model: RerankerModel = Field(default=RerankerModel.NONE, description="Reranker model to use")
     top_n: int = Field(default=10, ge=1, le=50, description="Number of initial results to rerank")
     score_threshold: float = Field(default=0.1, ge=0.0, le=1.0, description="Min reranking score to include")
+    server_url: Optional[str] = Field(default="http://localhost:9001", description="URL for the model server or inference server")
+    model_name: Optional[str] = Field(default=None, description="Specific model name to use with model server")
     
     @model_validator(mode='after')
     def validate_reranking(self):
@@ -116,6 +119,8 @@ class Settings:
     LOCAL_MODELS_PATH: str = os.getenv("LOCAL_MODELS_PATH", "./models")
     # Triton model settings
     TRITON_LLM_MODEL: str = os.getenv("TRITON_LLM_MODEL", "llama3-vllm")
+    # Model server settings
+    MODEL_SERVER_URL: str = os.getenv("MODEL_SERVER_URL", "http://localhost:9001")
     # Redis settings
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
 
