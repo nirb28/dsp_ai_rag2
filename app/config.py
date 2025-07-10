@@ -89,6 +89,7 @@ class GenerationConfig(BaseModel):
     top_p: float = Field(default=0.9, ge=0.0, le=1.0)
     top_k: Optional[int] = Field(default=None, ge=1, le=100)
     server_url: Optional[str] = Field(default="http://localhost:8000", description="URL for the inference server")
+    system_prompt: Optional[str] = Field(default=None, description="Default system prompt for the LLM")
     
     @model_validator(mode='after')
     def validate_provider(self):

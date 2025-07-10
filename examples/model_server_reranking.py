@@ -67,7 +67,7 @@ async def main():
     ]
     
     # Create reranker service with the configured model
-    reranker_service = RerankerService(config.reranking)
+    reranker_service = RerankerService(config)
     
     # Sample query
     query = "What is machine learning?"
@@ -78,7 +78,7 @@ async def main():
     
     # Rerank the documents based on relevance to the query
     if reranker_service.config.enabled:
-        logger.info(f"\nReranking documents using model server ({config.reranking.model_name})...")
+        logger.info(f"\nReranking documents using model server ({config.model_name})...")
         reranked_docs = await reranker_service.rerank(query, documents)
         
         logger.info(f"\nReranked documents:")

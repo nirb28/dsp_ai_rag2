@@ -192,7 +192,8 @@ class RAGService:
         k: Optional[int] = None,
         similarity_threshold: Optional[float] = None,
         context_items: Optional[List[Dict[str, Any]]] = None,
-        config_override: Optional[RAGConfig] = None
+        config_override: Optional[RAGConfig] = None,
+        system_prompt: Optional[str] = None
     ) -> QueryResponse:
         """Query the RAG system with optional context injection and reranking.
     
@@ -287,7 +288,7 @@ class RAGService:
                     context_docs.append(item)
             
             # Generate response - use the potentially context-injected query for generation
-            answer = await generation_service.generate_response(query, context_docs)
+            answer = await generation_service.generate_response(query, context_docs, system_prompt=system_prompt)
             
             processing_time = time.time() - start_time
             

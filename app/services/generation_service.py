@@ -33,6 +33,8 @@ class GroqGenerationService:
             
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
+            elif hasattr(self.config, 'system_prompt') and self.config.system_prompt:
+                messages.append({"role": "system", "content": self.config.system_prompt})
             else:
                 messages.append({
                     "role": "system", 
@@ -127,8 +129,10 @@ class TritonGenerationService:
             # Prepare context
             context = self._prepare_context(context_documents)
             
-            # Default system prompt if not provided
-            if not system_prompt:
+            # Use system_prompt from parameter, config, or default
+            if not system_prompt and hasattr(self.config, 'system_prompt') and self.config.system_prompt:
+                system_prompt = self.config.system_prompt
+            elif not system_prompt:
                 system_prompt = "You are a helpful AI assistant. Answer questions based on the provided context. If the context doesn't contain enough information to answer the question, say so clearly."
             
             # For Triton models, include the system prompt in the user message instead
@@ -221,6 +225,8 @@ class OpenAICompatibleGenerationService:
             
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
+            elif hasattr(self.config, 'system_prompt') and self.config.system_prompt:
+                messages.append({"role": "system", "content": self.config.system_prompt})
             else:
                 messages.append({
                     "role": "system", 

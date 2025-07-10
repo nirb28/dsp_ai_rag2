@@ -142,7 +142,13 @@ async def query_documents(request: QueryRequest):
         temp_config = None
         
         # Apply config overrides if provided
+        system_prompt = None
         if request.config:
+            # Extract system_prompt if present in config overrides
+            if 'system_prompt' in request.config:
+                system_prompt = request.config.pop('system_prompt')
+                logger.info(f"Using custom system prompt for query request")
+                
             # Create a temporary configuration with overrides
             temp_config_dict = config.dict()
             temp_config_dict.update(request.config)
@@ -154,6 +160,9 @@ async def query_documents(request: QueryRequest):
                 logger.info(f"Using configuration overrides for query request")
             except Exception as e:
                 logger.warning(f"Invalid config override: {str(e)}")
+                # If the config override is invalid, restore the system_prompt to the request.config for debugging
+                if system_prompt is not None:
+                    request.config['system_prompt'] = system_prompt
         
         # Check if reranking and context injection are enabled for this configuration
         reranking_enabled = hasattr(config, 'reranking') and config.reranking and config.reranking.enabled
@@ -176,7 +185,8 @@ async def query_documents(request: QueryRequest):
             k=request.k,
             similarity_threshold=request.similarity_threshold,
             context_items=request.context_items,
-            config_override=config if temp_config else None
+            config_override=config if temp_config else None,
+            system_prompt=system_prompt
         )
         
         # Filter metadata if requested
