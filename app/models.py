@@ -96,17 +96,22 @@ class ConfigurationNamesResponse(BaseModel):
 
 class RetrieveRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000)
-    configuration_name: str = "default"
+    configuration_name: Optional[str] = "default"
+    configuration_names: Optional[List[str]] = None
     k: int = Field(default=5, ge=1, le=50)
     similarity_threshold: Optional[float] = Field(default=0.0, ge=0.0, le=1.0)
     include_metadata: bool = True
     use_reranking: bool = False
     include_vectors: bool = False
     config: Optional[Dict[str, Any]] = None  # Optional partial config overrides
+    fusion_method: Optional[str] = "rrf"  # Options: "rrf", "simple"
+    rrf_k_constant: int = Field(default=60, ge=1)  # Constant for RRF calculation
 
 class RetrieveResponse(BaseModel):
     query: str
     documents: List[Dict[str, Any]]
     processing_time: float
-    configuration_name: str
+    configuration_name: Optional[str] = None
+    configuration_names: Optional[List[str]] = None
     total_found: int
+    fusion_method: Optional[str] = None

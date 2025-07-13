@@ -406,97 +406,215 @@ async def debug_configuration(configuration_name: str, limit: int = 10, show_vec
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.post("/retrieve", response_model=RetrieveResponse)
+@router.post("/retrieve", response_model=RetrieveResponse, 
+          description="Retrieve relevant documents from one or more configurations with optional fusion",
+          responses={
+              200: {
+                  "description": "Successfully retrieved documents",
+                  "content": {
+                      "application/json": {
+                          "examples": {
+                              "single_config": {
+                                  "summary": "Basic retrieval from single configuration",
+                                  "value": {
+                                      "query": "What is RAG?",
+                                      "documents": [
+                                          {
+                                              "content": "RAG (Retrieval Augmented Generation) is a technique...",
+                                              "similarity_score": 0.92,
+                                              "metadata": {"source": "introduction.pdf", "page": 1}
+                                          }
+                                      ],
+                                      "processing_time": 0.456,
+                                      "configuration_name": "default",
+                                      "total_found": 1
+                                  }
+                              },
+                              "multi_config": {
+                                  "summary": "Retrieval from multiple configurations with RRF fusion",
+                                  "value": {
+                                      "query": "What is RAG?",
+                                      "documents": [
+                                          {
+                                              "content": "RAG (Retrieval Augmented Generation) is a technique...",
+                                              "similarity_score": 0.92,
+                                              "source_configuration": "research_papers",
+                                              "rrf_score": 0.0151,
+                                              "metadata": {"source": "introduction.pdf", "page": 1}
+                                          },
+                                          {
+                                              "content": "Retrieval Augmented Generation combines search with LLMs...",
+                                              "similarity_score": 0.85,
+                                              "source_configuration": "knowledge_base",
+                                              "rrf_score": 0.0143,
+                                              "metadata": {"source": "llm_techniques.md", "section": "RAG"}
+                                          }
+                                      ],
+                                      "processing_time": 0.789,
+                                      "configuration_names": ["research_papers", "knowledge_base"],
+                                      "total_found": 2,
+                                      "fusion_method": "rrf"
+                                  }
+                              }
+                          }
+                      }
+                  }
+              },
+              404: {"description": "Configuration not found"},
+              500: {"description": "Internal server error"}
+          }
+)
 async def retrieve_documents(request: RetrieveRequest):
     """Retrieve relevant documents from a configuration without generating a response.
     
     This endpoint allows direct access to the vector retrieval functionality without LLM generation.
-    It's useful for debugging, testing, or when only the context documents are needed.
+    It supports retrieving from multiple vector stores and combining results using fusion methods.
     
     Args:
         request: The retrieval request containing query and options
     
     Returns:
-        Documents retrieved from the vector store, optionally reranked
+        Documents retrieved from the vector store(s), optionally reranked or fused
     """
     try:
         start_time = time.time()
-        configuration_name = request.configuration_name
         
-        # Check if configuration exists in RAG service but not in vector store manager
-        if configuration_name in rag_service.configurations and not rag_service.vector_store_manager.configuration_exists(configuration_name):
-            logger.info(f"Configuration '{configuration_name}' exists in RAG service but not in vector store manager. Initializing vector store.")
-            # Initialize the vector store by accessing it
-            try:
-                # This will create the vector store if it doesn't exist
-                rag_service._get_vector_store(configuration_name)
-            except Exception as e:
-                logger.error(f"Error initializing vector store for {configuration_name}: {str(e)}")
+        # Check for multiple configurations
+        multi_config = False
+        config_names = []
         
-        # Validate configuration exists in vector store manager
-        if not rag_service.vector_store_manager.configuration_exists(configuration_name):
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Configuration '{configuration_name}' not found"
-            )
+        if request.configuration_names and len(request.configuration_names) > 0:
+            # Multiple configurations specified
+            config_names = request.configuration_names
+            multi_config = True
+        else:
+            # Single configuration
+            config_names = [request.configuration_name]
         
-        # Get the vector store for this configuration
-        vector_store = rag_service._get_vector_store(configuration_name)
-        
-        # Get configuration, with optional overrides from the request
-        config = rag_service.get_configuration(configuration_name)
-        temp_config = None
-        
-        if request.config:
-            # Create a temporary configuration with overrides
-            temp_config_dict = config.dict()
-            temp_config_dict.update(request.config)
-            try:
-                temp_config = RAGConfig(**temp_config_dict)
-                # Use temporary config for this request
-                config = temp_config
-            except Exception as e:
-                logger.warning(f"Invalid config override: {str(e)}")
-        
-        # Get embeddings service for this configuration
-        embedding_service = rag_service._get_embedding_service(configuration_name)
-        
-        # Get reranker service if needed
-        reranker_service = None
-        if request.use_reranking:
-            reranker_service = rag_service._get_reranker_service(configuration_name)
-        
-        # Get query parameters
-        k = request.k
-        similarity_threshold = request.similarity_threshold if request.similarity_threshold is not None else config.retrieval.similarity_threshold
-        
-        # Retrieve documents
-        results = vector_store.similarity_search(
-            request.query,
-            k=k,
-            similarity_threshold=similarity_threshold
-        )
-        
-        # Process documents for response
-        documents = []
-        for doc, score in results:
-            document = {
-                'content': doc.page_content,
-                'similarity_score': score
-            }
+        # Validate that all requested configurations exist
+        for config_name in config_names:
+            # Check if configuration exists in RAG service but not in vector store manager
+            if config_name in rag_service.configurations and not rag_service.vector_store_manager.configuration_exists(config_name):
+                logger.info(f"Configuration '{config_name}' exists in RAG service but not in vector store manager. Initializing vector store.")
+                # Initialize the vector store by accessing it
+                try:
+                    # This will create the vector store if it doesn't exist
+                    rag_service._get_vector_store(config_name)
+                except Exception as e:
+                    logger.error(f"Error initializing vector store for {config_name}: {str(e)}")
             
-            if request.include_metadata:
-                document['metadata'] = doc.metadata
+            # Validate configuration exists in vector store manager
+            if not rag_service.vector_store_manager.configuration_exists(config_name):
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Configuration '{config_name}' not found"
+                )
+        
+        # Prepare to store results from each configuration
+        all_results = []
+        used_configs = []
+        
+        # Process each configuration
+        for config_name in config_names:
+            # Get the vector store for this configuration
+            vector_store = rag_service._get_vector_store(config_name)
+            
+            # Get configuration, with optional overrides from the request
+            config = rag_service.get_configuration(config_name)
+            temp_config = None
+            
+            if request.config:
+                # Create a temporary configuration with overrides
+                temp_config_dict = config.dict()
+                temp_config_dict.update(request.config)
+                try:
+                    temp_config = RAGConfig(**temp_config_dict)
+                    # Use temporary config for this request
+                    config = temp_config
+                except Exception as e:
+                    logger.warning(f"Invalid config override: {str(e)}")
+            
+            # Get query parameters
+            k = request.k
+            similarity_threshold = request.similarity_threshold if request.similarity_threshold is not None else config.retrieval.similarity_threshold
+            
+            # Retrieve documents from this configuration
+            results = vector_store.similarity_search(
+                request.query,
+                k=k,
+                similarity_threshold=similarity_threshold
+            )
+            
+            # Process documents for this configuration
+            config_documents = []
+            for doc, score in results:
+                document = {
+                    'content': doc.page_content,
+                    'similarity_score': score,
+                    'source_configuration': config_name  # Track which configuration this came from
+                }
                 
-            documents.append(document)
+                if request.include_metadata:
+                    document['metadata'] = doc.metadata
+                    
+                config_documents.append(document)
+            
+            # Store results from this configuration
+            if config_documents:
+                all_results.append(config_documents)
+                used_configs.append(config_name)
+        
+        # Combine results if multiple configurations
+        documents = []
+        fusion_method_used = None
+        
+        if multi_config and len(all_results) > 1:
+            # Import fusion methods
+            from app.services.utils import reciprocal_rank_fusion, simple_fusion
+            
+            # Determine fusion method
+            fusion_method = request.fusion_method or "rrf"
+            fusion_method_used = fusion_method
+            
+            if fusion_method == "rrf":
+                # Use Reciprocal Rank Fusion
+                documents = reciprocal_rank_fusion(
+                    all_results, 
+                    k=request.rrf_k_constant,
+                    key_field='content'
+                )
+            elif fusion_method == "simple":
+                # Use simple score averaging
+                documents = simple_fusion(
+                    all_results,
+                    key_field='content'
+                )
+            else:
+                # Default: just concatenate and sort by score
+                for result_list in all_results:
+                    documents.extend(result_list)
+                documents = sorted(documents, key=lambda x: x['similarity_score'], reverse=True)
+                fusion_method_used = "concatenate"
+        elif len(all_results) == 1:
+            # Single configuration results
+            documents = all_results[0]
         
         # Apply reranking if requested
-        if request.use_reranking and reranker_service and reranker_service.config.enabled and documents:
-            documents = await reranker_service.rerank(request.query, documents)
+        if request.use_reranking and documents:
+            # Get reranker from the first configuration (for multi-config) or the only configuration
+            primary_config = used_configs[0] if used_configs else request.configuration_name
+            reranker_service = rag_service._get_reranker_service(primary_config)
+            
+            if reranker_service and reranker_service.config.enabled:
+                documents = await reranker_service.rerank(request.query, documents)
         
         # Include embedding vectors if requested
         if request.include_vectors and documents:
             try:
+                # Use embedding service from the first configuration
+                primary_config = used_configs[0] if used_configs else request.configuration_name
+                embedding_service = rag_service._get_embedding_service(primary_config)
+                
                 # Get the embeddings for the document contents
                 texts = [doc['content'] for doc in documents]
                 embeddings = embedding_service.embed_texts(texts)
@@ -508,21 +626,35 @@ async def retrieve_documents(request: RetrieveRequest):
             except Exception as e:
                 logger.warning(f"Failed to include vectors: {str(e)}")
         
+        # Limit to top K if needed (in case fusion returned more)
+        if len(documents) > request.k:
+            documents = documents[:request.k]
+            
         processing_time = time.time() - start_time
+        
+        # Determine which configuration name to return
+        result_config_name = None
+        if not multi_config:
+            result_config_name = request.configuration_name
         
         return RetrieveResponse(
             query=request.query,
             documents=documents,
             processing_time=processing_time,
-            configuration_name=configuration_name,
-            total_found=len(documents)
+            configuration_name=result_config_name,
+            configuration_names=used_configs if multi_config else None,
+            total_found=len(documents),
+            fusion_method=fusion_method_used
         )
     
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error retrieving documents: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 # Preset application endpoint has been removed
 
