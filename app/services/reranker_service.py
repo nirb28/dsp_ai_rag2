@@ -20,11 +20,21 @@ class RerankerService:
     
     def _initialize_model(self) -> None:
         """Initialize the reranker model based on configuration."""
-        if not self.config.enabled or self.config.model == RerankerModel.NONE:
+        if not self.config.enabled:
             return
             
+        # Handle string models that are not in the enum
+        if not isinstance(self.config.model, RerankerModel):
+            logger.warning(f"Using custom reranker model not in enum: {self.config.model}. This is allowed but not officially supported.")
+            model_value = str(self.config.model)
+        else:
+            if self.config.model == RerankerModel.NONE:
+                return
+            model_value = self.config.model.value
+            
         try:
-            if self.config.model == RerankerModel.LOCAL_MODEL_SERVER:
+            # Handle local model server case
+            if isinstance(self.config.model, RerankerModel) and self.config.model == RerankerModel.LOCAL_MODEL_SERVER:
                 # Check if model server is reachable
                 server_url = self.config.server_url or settings.MODEL_SERVER_URL
                 if not server_url:
@@ -38,15 +48,18 @@ class RerankerService:
                 except Exception as e:
                     logger.warning(f"Could not connect to model server: {str(e)}")
                     
-            elif self.config.model == RerankerModel.SENTENCE_TRANSFORMERS_CROSS_ENCODER:
-                self.model = CrossEncoder(self.config.model.value)
-                logger.info(f"Initialized SentenceTransformers CrossEncoder reranker: {self.config.model.value}")
+            # Handle SentenceTransformers CrossEncoder case
+            elif isinstance(self.config.model, RerankerModel) and self.config.model == RerankerModel.SENTENCE_TRANSFORMERS_CROSS_ENCODER:
+                self.model = CrossEncoder(model_value)
+                logger.info(f"Initialized SentenceTransformers CrossEncoder reranker: {model_value}")
                 
-            elif self.config.model == RerankerModel.BGE_RERANKER:
+            # Handle BGE Reranker case
+            elif isinstance(self.config.model, RerankerModel) and self.config.model == RerankerModel.BGE_RERANKER:
                 self.model = CrossEncoder("BAAI/bge-reranker-large")
                 logger.info("Initialized BGE large reranker")
                 
-            elif self.config.model == RerankerModel.COHERE_RERANK:
+            # Handle Cohere Rerank case
+            elif isinstance(self.config.model, RerankerModel) and self.config.model == RerankerModel.COHERE_RERANK:
                 # Cohere requires API calls at rerank time, no model to load
                 if not settings.COHERE_API_KEY:
                     logger.warning("Cohere API key not set. Reranking will be disabled.")
@@ -54,9 +67,15 @@ class RerankerService:
                 else:
                     logger.info("Using Cohere Rerank API for reranking")
             
+            # Handle custom models - try to use CrossEncoder with the model string
             else:
-                logger.warning(f"Unsupported reranker model: {self.config.model}. Reranking will be disabled.")
-                self.config.enabled = False
+                try:
+                    # Try to load the model as a CrossEncoder
+                    self.model = CrossEncoder(model_value)
+                    logger.info(f"Initialized custom CrossEncoder reranker: {model_value}")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize custom reranker model: {model_value}. Error: {str(e)}")
+                    logger.warning("Attempting to continue with the model, but it may not work as expected.")
                 
         except Exception as e:
             logger.error(f"Failed to initialize reranker: {str(e)}")
@@ -76,14 +95,24 @@ class RerankerService:
             return documents
             
         try:
-            if self.config.model == RerankerModel.LOCAL_MODEL_SERVER:
-                return await self._rerank_with_model_server(query, documents)
-            elif self.config.model == RerankerModel.COHERE_RERANK:
-                return await self._rerank_with_cohere(query, documents)
-            elif self.model:
-                return self._rerank_with_local_model(query, documents)
-            else:
-                return documents
+            # Handle string models that are not in the enum
+            if not isinstance(self.config.model, RerankerModel):
+                # For custom models, if we have a loaded model, use it
+                if self.model:
+                    return self._rerank_with_local_model(query, documents)
+                else:
+                    # Try the model server as a fallback for custom models
+                    return await self._rerank_with_model_server(query, documents)
+            else:        
+                # Handle enum models
+                if self.config.model == RerankerModel.LOCAL_MODEL_SERVER:
+                    return await self._rerank_with_model_server(query, documents)
+                elif self.config.model == RerankerModel.COHERE_RERANK:
+                    return await self._rerank_with_cohere(query, documents)
+                elif self.model:
+                    return self._rerank_with_local_model(query, documents)
+                else:
+                    return documents
         except Exception as e:
             logger.error(f"Reranking failed: {str(e)}")
             return documents

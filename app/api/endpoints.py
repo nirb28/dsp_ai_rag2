@@ -3,7 +3,7 @@ import tempfile
 import time
 import json
 import numpy as np
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional, Union
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse
 import logging
@@ -15,7 +15,7 @@ from app.models import (
     DocumentUploadResponse, QueryRequest, QueryResponse, 
     ConfigurationRequest, ConfigurationResponse, HealthResponse,
     ErrorResponse, ConfigurationsResponse, ConfigurationInfo,
-    RetrieveRequest, RetrieveResponse
+    ConfigurationNamesResponse, RetrieveRequest, RetrieveResponse
 )
 from app.config import RAGConfig, settings
 from app.services.rag_service import RAGService
@@ -264,26 +264,39 @@ async def debug_configurations():
         logger.error(f"Error in debug endpoint: {str(e)}")
         return {"error": str(e)}
 
-@router.get("/configurations", response_model=ConfigurationsResponse)
-async def list_configurations():
-    """List all configurations and their information."""
+@router.get("/configurations", response_model=Union[ConfigurationsResponse, ConfigurationNamesResponse])
+async def list_configurations(names_only: bool = False):
+    """List all configurations and their information.
+    
+    Args:
+        names_only: If True, returns only the configuration names without their details
+    """
     try:
-        configurations_data = rag_service.get_configurations()
-        
-        configurations = []
-        for data in configurations_data:
-            configurations.append(ConfigurationInfo(
-                name=data['name'],
-                document_count=data['document_count'],
-                created_at=data.get('created_at'),
-                last_updated=data.get('last_updated'),
-                config=data['config']
-            ))
-        
-        return ConfigurationsResponse(
-            configurations=configurations,
-            total_count=len(configurations)
-        )
+        if names_only:
+            # Get only configuration names
+            names = rag_service.get_configuration_names()
+            return ConfigurationNamesResponse(
+                names=names,
+                total_count=len(names)
+            )
+        else:
+            # Get full configuration details
+            configurations_data = rag_service.get_configurations()
+            
+            configurations = []
+            for data in configurations_data:
+                configurations.append(ConfigurationInfo(
+                    name=data['name'],
+                    document_count=data['document_count'],
+                    created_at=data.get('created_at'),
+                    last_updated=data.get('last_updated'),
+                    config=data['config']
+                ))
+            
+            return ConfigurationsResponse(
+                configurations=configurations,
+                total_count=len(configurations)
+            )
         
     except Exception as e:
         logger.error(f"Error listing configurations: {str(e)}")

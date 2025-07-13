@@ -1,6 +1,9 @@
+import os
+import json
+import logging
 from enum import Enum
 from typing import Dict, Any, Optional, List, Union
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, validator
 import os
 from dotenv import load_dotenv
 
@@ -61,18 +64,46 @@ class VectorStoreConfig(BaseModel):
     redis_index_name: str = Field(default="document-index", description="Redis search index name")
 
 class EmbeddingConfig(BaseModel):
-    model: EmbeddingModel = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM
+    model: Union[EmbeddingModel, str] = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM
     batch_size: int = Field(default=32, ge=1, le=128)
     server_url: Optional[str] = Field(default="http://localhost:8000", description="URL for the model server or inference server")
+    
+    @validator('model')
+    def validate_model(cls, v):
+        # If it's already an enum value, return it
+        if isinstance(v, EmbeddingModel):
+            return v
+        
+        # If it's a string, try to convert to enum or keep as string
+        try:
+            return EmbeddingModel(v)
+        except ValueError:
+            # If not a valid enum value, allow it as a custom string with a warning
+            logging.warning(f"Using custom embedding model name: {v} (not in EmbeddingModel enum)")
+            return v
 
 class RerankerConfig(BaseModel):
     """Configuration for the reranking step in the retrieval process."""
     enabled: bool = Field(default=False, description="Whether to use reranking")
-    model: RerankerModel = Field(default=RerankerModel.NONE, description="Reranker model to use")
+    model: Union[RerankerModel, str] = Field(default=RerankerModel.NONE, description="Reranker model to use")
     top_n: int = Field(default=10, ge=1, le=50, description="Number of initial results to rerank")
     score_threshold: float = Field(default=0.1, ge=0.0, le=1.0, description="Min reranking score to include")
     server_url: Optional[str] = Field(default="http://localhost:9001", description="URL for the model server or inference server")
     model_name: Optional[str] = Field(default=None, description="Specific model name to use with model server")
+    
+    @validator('model')
+    def validate_model(cls, v):
+        # If it's already an enum value, return it
+        if isinstance(v, RerankerModel):
+            return v
+        
+        # If it's a string, try to convert to enum or keep as string
+        try:
+            return RerankerModel(v)
+        except ValueError:
+            # If not a valid enum value, allow it as a custom string with a warning
+            logging.warning(f"Using custom reranker model name: {v} (not in RerankerModel enum)")
+            return v
     
     @model_validator(mode='after')
     def validate_reranking(self):

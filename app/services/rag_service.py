@@ -307,6 +307,14 @@ class RAGService:
             logger.error(f"Error processing query: {str(e)}")
             raise
 
+    def get_configuration_names(self) -> List[str]:
+        """Get just the names of available configurations.
+        
+        Returns:
+            List of configuration names as strings
+        """
+        return list(self.configurations.keys())
+
     def get_configurations(self) -> List[Dict[str, Any]]:
         """Get information about all configurations without initializing services."""
         configurations = []

@@ -87,6 +87,12 @@ class ConfigurationInfo(BaseModel):
 class ConfigurationsResponse(BaseModel):
     configurations: List[ConfigurationInfo]
     total_count: int
+    
+
+class ConfigurationNamesResponse(BaseModel):
+    """Simple response model for configuration names only"""
+    names: List[str]
+    total_count: int
 
 class RetrieveRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000)

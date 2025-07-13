@@ -23,7 +23,16 @@ class EmbeddingService:
     def _initialize_model(self):
         """Verify API keys and endpoints for embedding services."""
         try:
-            if self.config.model.value.startswith("sentence-transformers/"):
+            model_value = self.config.model
+            # Handle string models that are not in the enum
+            if not isinstance(model_value, EmbeddingModel):
+                logger.warning(f"Using custom embedding model not in enum: {model_value}. This is allowed but not officially supported.")
+                # Treat it as a custom model string
+                model_value = str(model_value)
+            else:
+                model_value = self.config.model.value
+                
+            if model_value.startswith("sentence-transformers/"):
                 # Sentence transformer models should be accessed through the model server
                 server_url = self.config.server_url or settings.MODEL_SERVER_URL
                 if not server_url:
@@ -63,7 +72,8 @@ class EmbeddingService:
                 except Exception as e:
                     logger.warning(f"Could not connect to local model server: {str(e)}")
             else:
-                raise ValueError(f"Unsupported embedding model: {self.config.model}")
+                # Allow custom models with a warning
+                logger.warning(f"Using custom embedding model: {model_value}. This is allowed but not officially supported.")
         except Exception as e:
             logger.error(f"Error initializing embedding service: {str(e)}")
             raise
@@ -71,9 +81,23 @@ class EmbeddingService:
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for a list of texts."""
         try:
-            if self.config.model.value.startswith("sentence-transformers/"):
+            model_value = self.config.model
+            # Handle string models that are not in the enum
+            if not isinstance(model_value, EmbeddingModel):
+                model_value = str(model_value)
+                # Try to determine the best method for this custom model
+                if model_value.startswith("sentence-transformers/"):
+                    model_name = model_value.replace("sentence-transformers/", "")
+                    return self._embed_with_local_server(texts, model_name)
+                else:
+                    # Default to local server with the custom model name
+                    return self._embed_with_local_server(texts, model_value)
+            else:
+                model_value = self.config.model.value
+                
+            if model_value.startswith("sentence-transformers/"):
                 # Redirect to local model server for sentence transformers
-                model_name = self.config.model.value.replace("sentence-transformers/", "")
+                model_name = model_value.replace("sentence-transformers/", "")
                 return self._embed_with_local_server(texts, model_name)
             elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
                 return self._embed_with_openai(texts)
@@ -82,7 +106,9 @@ class EmbeddingService:
             elif self.config.model == EmbeddingModel.LOCAL_MODEL_SERVER:
                 return self._embed_with_local_server(texts)
             else:
-                raise ValueError(f"Unsupported embedding model: {self.config.model}")
+                # Handle custom models by defaulting to local server
+                logger.warning(f"Trying to use custom model {model_value} with local server")
+                return self._embed_with_local_server(texts, model_value)
         except Exception as e:
             logger.error(f"Error generating embeddings: {str(e)}")
             raise
@@ -92,10 +118,13 @@ class EmbeddingService:
         embeddings = []
         batch_size = min(self.config.batch_size, 100)  # OpenAI has limits
         
+        # Get model value, handling both enum and string cases
+        model_value = self.config.model.value if isinstance(self.config.model, EmbeddingModel) else str(self.config.model)
+        
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             response = openai.Embedding.create(
-                model=self.config.model.value,
+                model=model_value,
                 input=batch
             )
             batch_embeddings = [item['embedding'] for item in response['data']]
