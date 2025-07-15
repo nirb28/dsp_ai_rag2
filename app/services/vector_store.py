@@ -17,6 +17,7 @@ from langchain.docstore.document import Document as LangchainDocument
 
 from app.config import VectorStoreConfig, settings
 from app.services.embedding_service import EmbeddingService
+from app.services.bm25_store import BM25VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -417,6 +418,21 @@ class VectorStoreManager:
                 )
                 embedding_service = EmbeddingService(embedding_config)
                 self.stores[configuration_name] = RedisVectorStore(configuration_config, embedding_service)
+                
+            elif config.type == VectorStore.BM25:
+                # For BM25, we need a specific path for the index
+                configuration_config = {
+                    'type': config.type,
+                    'index_path': f"{config.index_path}/bm25",
+                    'name': configuration_name  # Pass configuration name to BM25 store
+                }
+                # Note: BM25 doesn't need an embedding service but we pass it to maintain interface compatibility
+                embedding_service = None
+                if embedding_config.get('enabled', False):
+                    # If embeddings are enabled in config, create the service but it won't be used by BM25
+                    embedding_service = EmbeddingService(embedding_config)
+                self.stores[configuration_name] = BM25VectorStore(configuration_config, embedding_service)
+                logger.info(f"Created BM25 vector store for configuration {configuration_name}")
             else:
                 raise ValueError(f"Unsupported vector store type: {config.type}")
                 

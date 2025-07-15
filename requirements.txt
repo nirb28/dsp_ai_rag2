@@ -30,6 +30,7 @@ chromadb
 pinecone-client
 weaviate-client
 redis
+rank-bm25
 
 # Text processing and tokens
 tiktoken

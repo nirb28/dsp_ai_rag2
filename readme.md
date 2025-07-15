@@ -5,8 +5,14 @@ A comprehensive Retrieval-Augmented Generation (RAG) platform built with FastAPI
 ## Features
 
 - **Configurable RAG Pipeline**: Choose from multiple chunking strategies, embedding models, and generation models
-- **FAISS Vector Store**: High-performance similarity search with FAISS
+- **Multiple Vector Store Options**:
+  - **FAISS**: High-performance similarity search with FAISS
+  - **Redis**: Redis-based vector storage with filtering capabilities
+  - **BM25**: Keyword-based search without requiring embeddings or model downloads
+- **Multi-Vector Store Retrieval**: Retrieve from multiple vector stores with fusion methods
+- **Endpoint-Only Mode**: Option to run without downloading models locally (see `docs/ENDPOINT_ONLY_SETUP.md`)
 - **Groq Integration**: Fast inference with Groq's LLM API
+- **System Prompt Customization**: Override system prompts per request
 - **Multiple File Formats**: Support for PDF, TXT, DOCX, and PPTX files
 - **RESTful API**: Complete REST API with automatic documentation
 - **Configuration Presets**: Pre-configured setups for different use cases
@@ -83,7 +89,9 @@ MAX_FILE_SIZE=10485760  # 10MB
 
 ### RAG Configuration
 
-The platform supports flexible configuration through JSON objects:
+The platform supports flexible configuration through JSON objects.
+
+#### Standard Configuration (with FAISS):
 
 ```json
 {
@@ -110,6 +118,34 @@ The platform supports flexible configuration through JSON objects:
   },
   "retrieval_k": 5,
   "similarity_threshold": 0.7
+}
+```
+
+#### Endpoint-Only Configuration (with BM25):
+
+```json
+{
+  "configuration_name": "endpoint_only_config",
+  "config": {
+    "embedding": {
+      "enabled": false,
+      "model": "none"
+    },
+    "vector_store": {
+      "type": "bm25",
+      "index_path": "./storage/bm25_index"
+    },
+    "generation": {
+      "enabled": true,
+      "provider": "groq",
+      "model": "llama3-70b-8192",
+      "temperature": 0.1,
+      "system_prompt": "You are a helpful assistant that provides accurate information based on the given context."
+    },
+    "retrieval": {
+      "k": 5
+    }
+  }
 }
 ```
 

@@ -1,5 +1,18 @@
 # DSP AI RAG2 - Release Notes
 
+## Version 2.3.0 (July 15, 2025)
+
+### New Features
+
+#### BM25 Search Support
+- Added BM25-based keyword search as a new vector store type
+- Implemented `BM25VectorStore` class that follows the same interface as other vector stores
+- BM25 provides better performance for exact keyword matching and technical terminology
+- Keyword search works without requiring embeddings or downloading any models
+- Zero-dependency approach that relies purely on statistical algorithms
+- Perfect for endpoint-only configurations where no models should be downloaded locally
+- Compatible with multi-vector store retrieval for hybrid search approaches
+
 ## Version 2.2.0 (July 13, 2025)
 
 ### New Features
