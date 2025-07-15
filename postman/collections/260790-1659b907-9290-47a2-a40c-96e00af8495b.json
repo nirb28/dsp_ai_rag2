@@ -172,7 +172,7 @@
 												},
 												{
 													"key": "metadata",
-													"value": "{\"source\": \"postman\", \"category\": \"test\"}",
+													"value": "{\"source\": \"postman\", \"category\": \"test\", \"role\":\"FA\"}",
 													"type": "text"
 												},
 												{
