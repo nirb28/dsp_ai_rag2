@@ -861,7 +861,7 @@
 											}
 										],
 										"url": {
-											"raw": "{{baseUrl}}/api/v1/configurations?names_only=true",
+											"raw": "{{baseUrl}}/api/v1/configurations",
 											"host": [
 												"{{baseUrl}}"
 											],
@@ -873,7 +873,8 @@
 											"query": [
 												{
 													"key": "names_only",
-													"value": "true"
+													"value": "true",
+													"disabled": true
 												}
 											]
 										},
