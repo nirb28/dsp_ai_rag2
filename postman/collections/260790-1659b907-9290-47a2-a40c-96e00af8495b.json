@@ -1509,7 +1509,7 @@
 												],
 												"body": {
 													"mode": "raw",
-													"raw": "{\n  \"query\": \"What is Computer Vision?\",\n  \"configuration_name\": \"batch_ml_ai_basics_test\",\n  \"include_metadata\": false,\n  \"similarity_threshold\": 0.2,\n  \"k\": 5,\n  \"use_reranking\": true,\n  \"include_vectors\": true\n}",
+													"raw": "{\n  \"query\": \"What is Computer Vision?\",\n  \"configuration_name\": \"batch_ml_ai_bm25_test\",\n  \"include_metadata\": false,\n  \"similarity_threshold\": 0.2,\n  \"k\": 5,\n  \"use_reranking\": true,\n  \"include_vectors\": true\n}",
 													"options": {
 														"raw": {
 															"headerFamily": "json",
