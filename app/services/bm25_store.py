@@ -7,7 +7,7 @@ import pickle
 from rank_bm25 import BM25Okapi  # Pure Python implementation, no model downloads
 import logging
 
-from app.services.vector_store import BaseVectorStore
+from app.services.base_vector_store import BaseVectorStore
 
 logger = logging.getLogger(__name__)
 

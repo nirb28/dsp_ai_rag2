@@ -1,8 +1,12 @@
 import os
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from pathlib import Path
 import dotenv
+import json
+import shutil
+import tempfile
+import time
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, Query
@@ -35,8 +39,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dictionary to store loaded models
-loaded_models: Dict[str, Any] = {}
+# Cache for loaded models
+loaded_models: Dict[str, Union[SentenceTransformer, CrossEncoder]] = {}
+
+# Temp directory for model copies
+TEMP_MODEL_DIR = Path(tempfile.gettempdir()) / "rag_models"
+if not TEMP_MODEL_DIR.exists():
+    os.makedirs(TEMP_MODEL_DIR, exist_ok=True)
 
 # Model base directory - load directly from .env if available, otherwise use default
 MODEL_DIR = Path(os.getenv('LOCAL_MODELS_PATH', './models'))
@@ -79,12 +88,39 @@ def get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
             # Also try with just the base name as a fallback for backward compatibility
             local_model_base_path = MODEL_DIR / model_name.split('/')[-1]
             
+            # Helper function to create a clean model directory and load from it
+            def copy_and_load_model(source_path):
+                # Create a safe name for the temp directory
+                safe_name = f"embed_{int(time.time())}_{hash(str(source_path)) % 1000}"
+                temp_model_path = TEMP_MODEL_DIR / safe_name
+                
+                if temp_model_path.exists():
+                    shutil.rmtree(temp_model_path)
+                os.makedirs(temp_model_path, exist_ok=True)
+                
+                # Copy model files to temp directory
+                logger.info(f"Copying model files from {source_path} to {temp_model_path}")
+                for item in os.listdir(source_path):
+                    s = os.path.join(source_path, item)
+                    d = os.path.join(temp_model_path, item)
+                    if os.path.isdir(s):
+                        shutil.copytree(s, d, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(s, d)
+                
+                # Load model from the clean temp directory
+                logger.info(f"Loading model from clean directory: {temp_model_path}")
+                return SentenceTransformer(str(temp_model_path), device='cpu', local_files_only=True)
+            
+            # Check if local paths exist
             if local_model_path.exists():
-                model = SentenceTransformer(str(local_model_path))
-                logger.info(f"Loaded model from local nested path: {local_model_path}")
+                logger.info(f"Found model in nested path: {local_model_path}")
+                model = copy_and_load_model(local_model_path)
+                logger.info(f"Successfully loaded model from local nested path: {local_model_path}")
             elif local_model_base_path.exists():
-                model = SentenceTransformer(str(local_model_base_path))
-                logger.info(f"Loaded model from local base path: {local_model_base_path}")
+                logger.info(f"Found model in base path: {local_model_base_path}")
+                model = copy_and_load_model(local_model_base_path)
+                logger.info(f"Successfully loaded model from local base path: {local_model_base_path}")
             else:
                 error_msg = f"Embedding model '{model_name}' not available locally. Please download it first."
                 logger.error(error_msg)
@@ -113,12 +149,39 @@ def get_reranker_model(model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2")
             # Also try with just the base name as a fallback for backward compatibility
             local_model_base_path = MODEL_DIR / model_name.split('/')[-1]
             
+            # Helper function to create a clean model directory and load from it
+            def copy_and_load_model(source_path):
+                # Create a safe name for the temp directory
+                safe_name = f"reranker_{int(time.time())}_{hash(str(source_path)) % 1000}"
+                temp_model_path = TEMP_MODEL_DIR / safe_name
+                
+                if temp_model_path.exists():
+                    shutil.rmtree(temp_model_path)
+                os.makedirs(temp_model_path, exist_ok=True)
+                
+                # Copy model files to temp directory
+                logger.info(f"Copying model files from {source_path} to {temp_model_path}")
+                for item in os.listdir(source_path):
+                    s = os.path.join(source_path, item)
+                    d = os.path.join(temp_model_path, item)
+                    if os.path.isdir(s):
+                        shutil.copytree(s, d, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(s, d)
+                
+                # Load model from the clean temp directory
+                logger.info(f"Loading model from clean directory: {temp_model_path}")
+                return CrossEncoder(str(temp_model_path), device='cpu', local_files_only=True)
+            
+            # Check if local paths exist
             if local_model_path.exists():
-                model = CrossEncoder(str(local_model_path))
-                logger.info(f"Loaded model from local nested path: {local_model_path}")
+                logger.info(f"Found model in nested path: {local_model_path}")
+                model = copy_and_load_model(local_model_path)
+                logger.info(f"Successfully loaded model from local nested path: {local_model_path}")
             elif local_model_base_path.exists():
-                model = CrossEncoder(str(local_model_base_path))
-                logger.info(f"Loaded model from local base path: {local_model_base_path}")
+                logger.info(f"Found model in base path: {local_model_base_path}")
+                model = copy_and_load_model(local_model_base_path)
+                logger.info(f"Successfully loaded model from local base path: {local_model_base_path}")
             else:
                 error_msg = f"Reranker model '{model_name}' not available locally. Please download it first."
                 logger.error(error_msg)
@@ -183,28 +246,21 @@ async def list_models():
         
         # Check local models directory
         if MODEL_DIR.exists():
-            # Walk through the directory structure to find all model directories
-            # This will support nested structures like "cross-encoder/ms-marco-MiniLM-L-6-v2"
+            # Look for directories that contain model files
             for root, dirs, files in os.walk(MODEL_DIR):
-                rel_path = Path(root).relative_to(MODEL_DIR)
-                
-                # Skip the base directory itself
-                if rel_path == Path('.'):
+                # Skip the base models directory itself
+                if root == str(MODEL_DIR):
                     continue
-                    
+                
                 # Check if this directory has model files
-                if any(f.endswith('.bin') or f.endswith('.pt') or f.endswith('.onnx') for f in files):
+                model_files = [f for f in files if f.endswith(('.bin', '.pt', '.onnx', '.model')) or f == 'config.json']
+                if model_files:
+                    # Get path relative to MODEL_DIR
+                    rel_path = Path(root).relative_to(MODEL_DIR)
+                    
                     # Convert Windows path separators to forward slashes for consistency with HF model names
                     model_path = str(rel_path).replace(os.sep, '/')
                     available_models.append(model_path)
-            
-            # Also include top-level directories for backward compatibility
-            top_level_models = [d.name for d in MODEL_DIR.iterdir() if d.is_dir()]
-            
-            # Add any top-level models that weren't already included
-            for model in top_level_models:
-                if model not in available_models:
-                    available_models.append(model)
         
         # Format the loaded models by removing the prefix
         formatted_loaded_models = []

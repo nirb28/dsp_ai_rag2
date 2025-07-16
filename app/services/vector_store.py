@@ -17,6 +17,7 @@ from langchain.docstore.document import Document as LangchainDocument
 
 from app.config import VectorStoreConfig, settings
 from app.services.embedding_service import EmbeddingService
+from app.services.base_vector_store import BaseVectorStore
 from app.services.bm25_store import BM25VectorStore
 
 logger = logging.getLogger(__name__)
@@ -24,10 +25,11 @@ logger = logging.getLogger(__name__)
 class VectorStore(str, Enum):
     FAISS = "faiss"
     REDIS = "redis"
+    BM25 = "bm25"
 
-class FAISSVectorStore:
+class FAISSVectorStore(BaseVectorStore):
     def __init__(self, config: VectorStoreConfig, embedding_service: EmbeddingService):
-        self.config = config
+        super().__init__(config)
         self.embedding_service = embedding_service
         self.dimension = embedding_service.get_dimension()
         self.index = None
@@ -191,9 +193,9 @@ class FAISSVectorStore:
             logger.error(f"Error saving FAISS index: {str(e)}")
             raise
 
-class RedisVectorStore:
+class RedisVectorStore(BaseVectorStore):
     def __init__(self, config: VectorStoreConfig, embedding_service: EmbeddingService):
-        self.config = config
+        super().__init__(config)
         self.embedding_service = embedding_service
         self.dimension = embedding_service.get_dimension()
         self.redis_client = None
