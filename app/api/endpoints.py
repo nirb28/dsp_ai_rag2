@@ -2,6 +2,7 @@ import os
 import tempfile
 import time
 import json
+import uuid
 import numpy as np
 from typing import Any, Dict, List, Optional, Union
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
@@ -15,7 +16,9 @@ from app.models import (
     DocumentUploadResponse, QueryRequest, QueryResponse, 
     ConfigurationRequest, ConfigurationResponse, HealthResponse,
     ErrorResponse, ConfigurationsResponse, ConfigurationInfo,
-    ConfigurationNamesResponse, RetrieveRequest, RetrieveResponse
+    ConfigurationNamesResponse, RetrieveRequest, RetrieveResponse,
+    TextDocumentsUploadRequest, TextDocumentsUploadResponse,
+    DuplicateConfigurationRequest, DuplicateConfigurationResponse
 )
 from app.config import RAGConfig, settings
 from app.services.rag_service import RAGService
@@ -71,6 +74,7 @@ async def upload_document(
     process_immediately: bool = Form(default=True)
 ):
     """Upload a document to a collection."""
+    temp_file_path = None
     try:
         # Validate file type
         file_extension = os.path.splitext(file.filename)[1].lower().lstrip('.')
@@ -102,33 +106,110 @@ async def upload_document(
             temp_file.write(content)
             temp_file_path = temp_file.name
         
-        try:
-            # Process document
-            document = await rag_service.upload_document(
-                file_path=temp_file_path,
-                filename=file.filename,
-                configuration_name=configuration_name,
-                metadata=doc_metadata,
-                process_immediately=process_immediately
-            )
+        # Process document
+        document = await rag_service.upload_document(
+            file_path=temp_file_path,
+            filename=file.filename,
+            configuration_name=configuration_name,
+            metadata=doc_metadata,
+            process_immediately=process_immediately
+        )
+        
+        return DocumentUploadResponse(
+            document_id=document.id,
+            filename=document.filename,
+            status=document.status,
+            message="Document uploaded successfully to configuration '{configuration_name}",
+            configuration_name=configuration_name
+        )
             
-            return DocumentUploadResponse(
-                document_id=document.id,
-                filename=document.filename,
-                status=document.status,
-                configuration_name=configuration_name,
-                message=f"Document uploaded successfully to configuration '{configuration_name}'"
-            )
-            
-        finally:
-            # Clean up temporary file
-            os.unlink(temp_file_path)
-            
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error uploading document: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Error in upload: {str(e)}")
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
+        raise
+    finally:
+        # Clean up temporary file
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception as e:
+                logger.warning(f"Error removing temporary file: {str(e)}")
+
+
+@router.post("/upload/text", response_model=TextDocumentsUploadResponse)
+async def upload_text_documents(request: TextDocumentsUploadRequest):
+    """Upload multiple text documents without requiring file attachments.
+    
+    This endpoint allows uploading one or more text documents directly as JSON,
+    without the need to create and upload actual files.
+    
+    Args:
+        request: The request containing text documents and configuration options
+        
+    Returns:
+        Information about the uploaded documents
+    """
+    try:
+        configuration_name = request.configuration_name
+        process_immediately = request.process_immediately
+        
+        # Validate configuration exists
+        try:
+            rag_service.get_configuration(configuration_name)
+        except KeyError:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Configuration '{configuration_name}' not found"
+            )
+        
+        # Process each document
+        results = []
+        for doc in request.documents:
+            try:
+                # Generate a unique filename if none is provided
+                filename = doc.filename
+                if not filename:
+                    filename = f"text_doc_{str(uuid.uuid4())[:8]}.txt"
+                
+                # Process text content
+                document = await rag_service.upload_text_content(
+                    content=doc.content,
+                    filename=filename,
+                    configuration_name=configuration_name,
+                    metadata=doc.metadata,
+                    process_immediately=process_immediately
+                )
+                
+                results.append(DocumentUploadResponse(
+                    document_id=document.id,
+                    filename=document.filename,
+                    status=document.status,
+                    message="Document uploaded successfully",
+                    configuration_name=configuration_name
+                ))
+                
+            except Exception as e:
+                logger.error(f"Error processing text document {filename}: {str(e)}")
+                results.append(DocumentUploadResponse(
+                    document_id="",
+                    filename=filename,
+                    status=DocumentStatus.FAILED,
+                    message=f"Error: {str(e)}",
+                    configuration_name=configuration_name
+                ))
+        
+        return TextDocumentsUploadResponse(
+            documents=results,
+            total_count=len(results),
+            configuration_name=configuration_name,
+            message=f"Processed {len(results)} text documents"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in text upload: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing text documents: {str(e)}")
+
 
 @router.post("/query", response_model=QueryResponse)
 async def query_documents(request: QueryRequest):
@@ -302,21 +383,61 @@ async def list_configurations(names_only: bool = False):
         logger.error(f"Error listing configurations: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.delete("/configurations/{configuration_name}")
+@router.delete("/configurations/{configuration_name}", response_model=ConfigurationResponse)
 async def delete_configuration(configuration_name: str):
     """Delete a configuration."""
     try:
         success = rag_service.delete_configuration(configuration_name)
         if success:
-            return {"message": f"Configuration '{configuration_name}' deleted successfully"}
+            return ConfigurationResponse(
+                success=True,
+                message=f"Configuration '{configuration_name}' deleted successfully",
+                configuration_name=configuration_name
+            )
         else:
-            raise HTTPException(status_code=404, detail=f"Configuration '{configuration_name}' not found")
-            
-    except HTTPException:
-        raise
+            raise HTTPException(status_code=500, detail=f"Failed to delete configuration '{configuration_name}'")
     except Exception as e:
         logger.error(f"Error deleting configuration: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/configurations/duplicate", response_model=DuplicateConfigurationResponse)
+async def duplicate_configuration(request: DuplicateConfigurationRequest):
+    """Duplicate a configuration with option to include vector store contents.
+    
+    This endpoint allows creating a copy of an existing configuration with a new name.
+    Optionally, it can also copy all documents from the source configuration's vector store.
+    
+    Args:
+        request: The request containing source and target configuration names and options
+        
+    Returns:
+        Information about the duplicated configuration
+    """
+    try:
+        result = await rag_service.duplicate_configuration(
+            source_configuration_name=request.source_configuration_name,
+            target_configuration_name=request.target_configuration_name,
+            include_documents=request.include_documents
+        )
+        
+        return DuplicateConfigurationResponse(
+            source_configuration_name=result["source_configuration_name"],
+            target_configuration_name=result["target_configuration_name"],
+            config=result["config"],
+            documents_copied=result["documents_copied"],
+            message=result["message"]
+        )
+        
+    except KeyError as e:
+        logger.error(f"Configuration not found: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        logger.error(f"Invalid configuration duplication request: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error duplicating configuration: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error duplicating configuration: {str(e)}")
 
 @router.get("/debug/{configuration_name}")
 async def debug_configuration(configuration_name: str, limit: int = 10, show_vectors: bool = False, show_text: bool = True):

@@ -157,3 +157,43 @@ class DocumentProcessor:
             })
         
         return chunks
+        
+    def process_text_content(
+        self, 
+        content: str, 
+        filename: str, 
+        configuration_name: str,
+        chunking_config: ChunkingConfig,
+        metadata: Dict[str, Any] = None
+    ) -> Document:
+        """Process raw text content without requiring a file.
+        
+        Args:
+            content: The raw text content to process
+            filename: A name to identify the document
+            configuration_name: The configuration to use
+            chunking_config: Configuration for text chunking
+            metadata: Optional metadata for the document
+            
+        Returns:
+            Document object with the processed content
+        """
+        try:
+            # Create document with the provided text content
+            document = Document(
+                id=str(uuid.uuid4()),
+                filename=filename,
+                content=content,
+                metadata=metadata or {},
+                status=DocumentStatus.UPLOADED,
+                configuration_name=configuration_name,
+                file_size=len(content.encode('utf-8')),  # Size in bytes
+                file_type='txt'  # Default to txt type for raw text
+            )
+            
+            logger.info(f"Successfully processed text content as document: {filename}")
+            return document
+            
+        except Exception as e:
+            logger.error(f"Error processing text content as document {filename}: {str(e)}")
+            raise

@@ -160,6 +160,49 @@ class RAGService:
         except Exception as e:
             logger.error(f"Error uploading document: {str(e)}")
             raise
+            
+    async def upload_text_content(
+        self, 
+        content: str,
+        filename: str,
+        configuration_name: str = "default",
+        metadata: Optional[Dict[str, Any]] = None,
+        process_immediately: bool = True
+    ) -> Document:
+        """Upload and optionally process raw text content without requiring a file.
+        
+        Args:
+            content: The raw text content to process
+            filename: A name to identify the document
+            configuration_name: The configuration to use
+            metadata: Optional metadata for the document
+            process_immediately: Whether to index the document immediately
+            
+        Returns:
+            Document object with the processed content
+        """
+        try:
+            config = self.get_configuration(configuration_name)
+            
+            # Process text content into Document object
+            document = self.document_processor.process_text_content(
+                content,
+                filename,
+                configuration_name=configuration_name,
+                chunking_config=config.chunking,
+                metadata=metadata
+            )
+            
+            if process_immediately:
+                await self._index_document(document, configuration_name)
+                document.status = DocumentStatus.INDEXED
+            
+            logger.info(f"Uploaded text content as document: {filename} to configuration: {configuration_name}")
+            return document
+            
+        except Exception as e:
+            logger.error(f"Error uploading text content: {str(e)}")
+            raise
 
     async def _index_document(self, document: Document, configuration_name: str):
         """Index a document in the vector store."""
@@ -382,3 +425,71 @@ class RAGService:
         except Exception as e:
             logger.error(f"Error reloading configurations: {str(e)}")
             return False
+            
+    async def duplicate_configuration(
+        self,
+        source_configuration_name: str,
+        target_configuration_name: str,
+        include_documents: bool = False
+    ) -> Dict[str, Any]:
+        """Duplicate a configuration with option to include vector store contents.
+        
+        Args:
+            source_configuration_name: Name of the source configuration
+            target_configuration_name: Name of the target configuration
+            include_documents: Whether to copy documents from source to target
+            
+        Returns:
+            Dictionary with information about the duplication
+        """
+        try:
+            # Check if source configuration exists
+            if source_configuration_name not in self.configurations:
+                raise KeyError(f"Source configuration '{source_configuration_name}' not found")
+                
+            # Check if target configuration already exists
+            if target_configuration_name in self.configurations:
+                raise ValueError(f"Target configuration '{target_configuration_name}' already exists")
+                
+            # Get source configuration
+            source_config = self.configurations[source_configuration_name]
+            
+            # Create a deep copy of the configuration
+            import copy
+            target_config = copy.deepcopy(source_config)
+            
+            # Set the new configuration
+            self.configurations[target_configuration_name] = target_config
+            self._save_configurations()
+            
+            documents_copied = 0
+            
+            # Copy documents if requested
+            if include_documents:
+                # Get source vector store
+                source_vector_store = self._get_vector_store(source_configuration_name)
+                
+                # Get target vector store (this will create it)
+                target_vector_store = self._get_vector_store(target_configuration_name)
+                
+                # For FAISS vector store, we can copy documents directly
+                if hasattr(source_vector_store, 'documents') and hasattr(target_vector_store, 'add_documents'):
+                    # Get documents from source
+                    documents = source_vector_store.documents
+                    
+                    if documents:
+                        # Add documents to target
+                        target_vector_store.add_documents(documents)
+                        documents_copied = len(documents)
+                        
+            return {
+                "source_configuration_name": source_configuration_name,
+                "target_configuration_name": target_configuration_name,
+                "config": target_config.dict(),
+                "documents_copied": documents_copied,
+                "message": f"Configuration '{source_configuration_name}' duplicated to '{target_configuration_name}' successfully"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error duplicating configuration: {str(e)}")
+            raise

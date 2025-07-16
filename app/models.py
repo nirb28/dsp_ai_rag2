@@ -115,3 +115,41 @@ class RetrieveResponse(BaseModel):
     configuration_names: Optional[List[str]] = None
     total_found: int
     fusion_method: Optional[str] = None
+
+
+class TextDocument(BaseModel):
+    """Model for a text document to be uploaded without a file."""
+    content: str = Field(..., min_length=1)
+    filename: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class TextDocumentsUploadRequest(BaseModel):
+    """Request model for uploading multiple text documents."""
+    documents: List[TextDocument] = Field(..., min_items=1)
+    configuration_name: str = "default"
+    process_immediately: bool = True
+
+
+class TextDocumentsUploadResponse(BaseModel):
+    """Response model for multiple text documents upload."""
+    documents: List[DocumentUploadResponse]
+    total_count: int
+    configuration_name: str
+    message: str
+
+
+class DuplicateConfigurationRequest(BaseModel):
+    """Request model for duplicating a configuration."""
+    source_configuration_name: str
+    target_configuration_name: str
+    include_documents: bool = False
+
+
+class DuplicateConfigurationResponse(BaseModel):
+    """Response model for configuration duplication."""
+    source_configuration_name: str
+    target_configuration_name: str
+    config: Dict[str, Any]
+    documents_copied: int = 0
+    message: str
