@@ -1,13 +1,69 @@
 import os
 import json
 import logging
+import re
 from enum import Enum
-from typing import Dict, Any, Optional, List, Union
-from pydantic import BaseModel, Field, model_validator, validator
-import os
+from typing import Dict, Any, Optional, List, Union, TypeVar, Type, Callable
+from pydantic import BaseModel, Field, model_validator, validator, create_model
 from dotenv import load_dotenv
 
+# Load environment variables from .env file
 load_dotenv()
+
+# Type variable for generic model types
+T = TypeVar('T', bound=BaseModel)
+
+# Regular expression to match environment variable patterns like ${VAR_NAME}
+ENV_VAR_PATTERN = re.compile(r'\${([A-Za-z0-9_]+)}')
+
+def resolve_env_vars(value: str) -> str:
+    """Replace environment variable references in a string with their values.
+    
+    Args:
+        value: String that may contain environment variable references like ${VAR_NAME}
+        
+    Returns:
+        String with environment variables replaced with their values
+    """
+    if not isinstance(value, str):
+        return value
+        
+    def replace_env_var(match):
+        var_name = match.group(1)
+        env_value = os.getenv(var_name)
+        if env_value is None:
+            logging.warning(f"Environment variable '{var_name}' not found in .env file")
+            return match.group(0)  # Return the original ${VAR_NAME} if not found
+        return env_value
+        
+    return ENV_VAR_PATTERN.sub(replace_env_var, value)
+
+def process_env_vars_in_model(model: T) -> T:
+    """Process all string fields in a Pydantic model to substitute environment variables.
+    
+    Args:
+        model: A Pydantic model instance
+        
+    Returns:
+        The same model with environment variables resolved in string fields
+    """
+    data = model.dict()
+    
+    # Process all string values in the model data
+    for field_name, field_value in data.items():
+        if isinstance(field_value, str):
+            data[field_name] = resolve_env_vars(field_value)
+        elif isinstance(field_value, dict):
+            # Handle nested dictionaries
+            for k, v in field_value.items():
+                if isinstance(v, str):
+                    field_value[k] = resolve_env_vars(v)
+        elif isinstance(field_value, BaseModel):
+            # Handle nested models
+            data[field_name] = process_env_vars_in_model(field_value)
+    
+    # Create a new model instance with the processed data
+    return model.__class__(**data)
 
 class ChunkingStrategy(str, Enum):
     FIXED_SIZE = "fixed_size"
@@ -90,7 +146,6 @@ class RerankerConfig(BaseModel):
     top_n: int = Field(default=10, ge=1, le=50, description="Number of initial results to rerank")
     score_threshold: float = Field(default=0.1, ge=0.0, le=1.0, description="Min reranking score to include")
     server_url: Optional[str] = Field(default="http://localhost:9001", description="URL for the model server or inference server")
-    model_name: Optional[str] = Field(default=None, description="Specific model name to use with model server")
     
     @validator('model')
     def validate_model(cls, v):

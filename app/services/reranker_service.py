@@ -155,14 +155,11 @@ class RerankerService:
             # Extract document texts
             document_texts = [doc["content"] for doc in documents]
             
-            # Determine which model to use
-            model_name = self.config.model_name or "cross-encoder/ms-marco-MiniLM-L-6-v2"
-            
             # Format the request according to the model server API
             payload = {
                 "query": query,
                 "documents": document_texts,
-                "model_name": model_name
+                "model_name": self.config.model
             }
             
             # Call the model server reranking API

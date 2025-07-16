@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import os
 
-from app.config import RAGConfig, settings
+from app.config import RAGConfig, settings, process_env_vars_in_model
 from app.models import Document, DocumentStatus, QueryResponse
 from app.services.document_processor import DocumentProcessor
 from app.services.embedding_service import EmbeddingService
@@ -33,10 +33,14 @@ class RAGService:
                 with open(config_file, 'r') as f:
                     data = json.load(f)
                     for configuration_name, config_dict in data.items():
-                        self.configurations[configuration_name] = RAGConfig(**config_dict)
+                        # Create the RAGConfig and process environment variables
+                        config = RAGConfig(**config_dict)
+                        config = process_env_vars_in_model(config)
+                        self.configurations[configuration_name] = config
                 logger.info(f"Loaded {len(self.configurations)} configurations")
             except Exception as e:
                 logger.error(f"Error loading configurations: {str(e)}")
+                raise
 
     def _save_configurations(self):
         """Save configurations to storage."""
@@ -58,6 +62,8 @@ class RAGService:
     def set_configuration(self, configuration_name: str, config: RAGConfig) -> bool:
         """Set configuration for a configuration."""
         try:
+            # Process environment variables in the configuration
+            config = process_env_vars_in_model(config)
             self.configurations[configuration_name] = config
             self._save_configurations()
             
@@ -82,7 +88,7 @@ class RAGService:
             configuration_name: Name of the configuration to retrieve
             
         Returns:
-            The configuration if it exists
+            The configuration if it exists with environment variables resolved
             
         Raises:
             KeyError: If the configuration does not exist
@@ -91,7 +97,10 @@ class RAGService:
             # Configuration doesn't exist
             raise KeyError(f"Configuration '{configuration_name}' not found")
         
-        return self.configurations[configuration_name]
+        # Get the configuration and ensure environment variables are processed
+        # This ensures any environment variables added after initial loading are processed
+        config = self.configurations[configuration_name]
+        return process_env_vars_in_model(config)
 
     def _get_embedding_service(self, configuration_name: str) -> EmbeddingService:
         """Get or create embedding service for a configuration."""
