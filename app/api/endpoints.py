@@ -18,7 +18,8 @@ from app.models import (
     ErrorResponse, ConfigurationsResponse, ConfigurationInfo,
     ConfigurationNamesResponse, RetrieveRequest, RetrieveResponse,
     TextDocumentsUploadRequest, TextDocumentsUploadResponse,
-    DuplicateConfigurationRequest, DuplicateConfigurationResponse
+    DuplicateConfigurationRequest, DuplicateConfigurationResponse,
+    DeleteConfigurationResponse
 )
 from app.config import RAGConfig, settings
 from app.services.rag_service import RAGService
@@ -383,13 +384,13 @@ async def list_configurations(names_only: bool = False):
         logger.error(f"Error listing configurations: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.delete("/configurations/{configuration_name}", response_model=ConfigurationResponse)
+@router.delete("/configurations/{configuration_name}", response_model=DeleteConfigurationResponse)
 async def delete_configuration(configuration_name: str):
     """Delete a configuration."""
     try:
         success = rag_service.delete_configuration(configuration_name)
         if success:
-            return ConfigurationResponse(
+            return DeleteConfigurationResponse(
                 success=True,
                 message=f"Configuration '{configuration_name}' deleted successfully",
                 configuration_name=configuration_name

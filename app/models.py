@@ -65,6 +65,11 @@ class ConfigurationResponse(BaseModel):
     configuration_name: str
     config: Dict[str, Any]
     message: str
+    
+class DeleteConfigurationResponse(BaseModel):
+    success: bool
+    message: str
+    configuration_name: str
 
 class HealthResponse(BaseModel):
     status: str
