@@ -1,5 +1,28 @@
 # DSP AI RAG2 - Release Notes
 
+## Version 2.4.0 (July 17, 2025)
+
+### New Features
+
+#### Chatbot UI
+- Introduced a chatbot user interface with configurable Retrieval-Augmented Generation (RAG) parameters
+- Supports chat history and dynamic parameter adjustment
+- Integrates directly with backend RAG API endpoints
+
+#### Configuration Management UI
+- Added a configuration management interface with full CRUD (Create, Read, Update, Delete) operations
+- Includes a JSON editor for advanced configuration editing
+
+#### Core RAG Functionality
+- Implemented core RAG features with robust API endpoints
+- Enhanced configuration loading and management
+
+#### Environment Configuration
+- Added support for model server URLs and LLM configuration via environment variables
+
+### Other Changes
+- Updated Postman collections for new endpoints and features
+
 ## Version 2.3.0 (July 15, 2025)
 
 ### New Features
