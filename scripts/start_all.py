@@ -39,7 +39,7 @@ load_dotenv()
 REPO_ROOT = Path(__file__).parent.parent  # Go up one level from scripts folder
 API_PATH = REPO_ROOT / "app" / "main.py"
 MODEL_SERVER_PATH = REPO_ROOT / "app" / "model_server.py"
-STREAMLIT_PATH = REPO_ROOT / "examples" / "streamlit_ui" / "app.py"
+STREAMLIT_PATH = REPO_ROOT / "examples" / "ui" / "app.py"
 
 # Define log directory and file
 LOG_DIR = os.getenv("LOG_PATH", "logs")
@@ -118,7 +118,7 @@ def start_streamlit():
     
     streamlit_process = subprocess.Popen(
         [sys.executable, "-m", "streamlit", "run", str(STREAMLIT_PATH), "--server.port", str(STREAMLIT_PORT), "--server.runOnSave=false"],
-        cwd=REPO_ROOT / "examples" / "streamlit_ui",
+        cwd=REPO_ROOT / "examples" / "ui",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
