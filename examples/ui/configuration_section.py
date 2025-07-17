@@ -9,7 +9,8 @@ def configuration_section():
         "List Configurations",
         "Add Configuration",
         "Delete Configuration",
-        "Duplicate Configuration"
+        "Duplicate Configuration",
+        "Get or Save Configuration"
     ])
     # --- List Configurations ---
     with tabs[0]:
@@ -107,3 +108,48 @@ def configuration_section():
                 st.json(resp.json())
             except Exception as e:
                 st.error(f"Failed to duplicate configuration: {e}")
+
+    # --- Get or Save Configuration ---
+    with tabs[4]:
+        st.subheader("Get or Save Configuration")
+        # Fetch available configurations for dropdown
+        configs = get_configurations()
+        config_names = []
+        config_map = {}
+        if isinstance(configs, dict) and "configurations" in configs:
+            for c in configs["configurations"]:
+                name = c.get("name") or c.get("config_name") or c.get("id")
+                if name:
+                    config_names.append(name)
+                    config_map[name] = c
+        elif isinstance(configs, list):
+            for c in configs:
+                name = c.get("name") or c.get("config_name") or c.get("id")
+                if name:
+                    config_names.append(name)
+                    config_map[name] = c
+        selected = st.selectbox("Select Configuration to Edit", config_names) if config_names else None
+        config_json = None
+        if selected:
+            config_json = config_map[selected]
+            import json
+            editable_json = st.text_area(
+                "Edit Configuration JSON",
+                value=json.dumps(config_json, indent=2, ensure_ascii=False),
+                height=300,
+            )
+            if st.button("Save Configuration"):
+                try:
+                    new_config = json.loads(editable_json)
+                    resp = requests.post(f"{API_BASE_URL}/configurations", json=new_config)
+                    st.write(f"Status: {resp.status_code}")
+                    st.json(resp.json())
+                    # Reload configuration after save
+                    reload_resp = requests.post(f"{API_BASE_URL}/configurations/reload")
+                    st.write(f"Reload Status: {reload_resp.status_code}")
+                    st.json(reload_resp.json())
+                except Exception as e:
+                    st.error(f"Failed to save configuration: {e}")
+        else:
+            st.info("No configurations available to edit.")
+

@@ -34,6 +34,9 @@ class RAGService:
                     data = json.load(f)
                     for configuration_name, config_dict in data.items():
                         # Create the RAGConfig and process environment variables
+                        # Remove any existing configuration_name field from the config_dict
+                        if 'configuration_name' in config_dict:
+                            del config_dict['configuration_name']
                         config = RAGConfig(**config_dict)
                         config = process_env_vars_in_model(config)
                         self.configurations[configuration_name] = config
@@ -50,7 +53,9 @@ class RAGService:
             
             data = {}
             for configuration_name, config in self.configurations.items():
-                data[configuration_name] = config.dict()
+                # Save configuration without adding redundant name field
+                config_dict = config.dict()
+                data[configuration_name] = config_dict
             
             with open(config_file, 'w') as f:
                 json.dump(data, f, indent=2)

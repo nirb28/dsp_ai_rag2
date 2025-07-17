@@ -289,7 +289,6 @@ async def add_configuration(request: ConfigurationRequest):
     try:
         # Validate and create RAG config
         config = RAGConfig(**request.config)
-        config.configuration_name = request.configuration_name
         
         # Set configuration
         success = rag_service.set_configuration(request.configuration_name, config)
@@ -918,12 +917,13 @@ async def list_documents(configuration_name: str = Query(...)):
 
 
 @router.get("/documents/{document_id}/chunks")
-async def get_document_chunks(document_id: str, configuration_name: str = Query(...)):
+async def get_document_chunks(document_id: str, configuration_name: str = Query(...), include_vectors: bool = False):
     """Retrieve all chunks of a specific document.
     
     Args:
         document_id: The ID of the document to retrieve chunks for
         configuration_name: The configuration where the document is stored
+        include_vectors: Whether to include embedding vectors in the response (default: False)
         
     Returns:
         Dictionary containing all chunks of the document
@@ -943,6 +943,23 @@ async def get_document_chunks(document_id: str, configuration_name: str = Query(
             for doc in all_documents
             if doc.metadata.get('document_id') == document_id
         ]
+        
+        # Include embedding vectors if requested
+        if include_vectors and document_chunks:
+            try:
+                # Get embedding service for the configuration
+                embedding_service = rag_service._get_embedding_service(configuration_name)
+                
+                # Get the embeddings for the document contents
+                texts = [chunk['content'] for chunk in document_chunks]
+                embeddings = embedding_service.embed_texts(texts)
+                
+                # Add embeddings to chunks
+                for i, chunk in enumerate(document_chunks):
+                    if i < len(embeddings):
+                        chunk['vector'] = embeddings[i]
+            except Exception as e:
+                logger.warning(f"Failed to include vectors: {str(e)}")
         
         return {
             'document_id': document_id,

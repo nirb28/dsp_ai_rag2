@@ -4,7 +4,9 @@ from utils import API_BASE_URL
 
 def documents_section(selected_config):
     st.header("📄 Documents Management")
-    st.info(f"Current Configuration: {selected_config if selected_config else 'None selected'}")
+
+    if 'doc_tab_index' not in st.session_state:
+        st.session_state['doc_tab_index'] = 0
     tabs = st.tabs([
         "List Documents",
         "Get Chunks",
@@ -49,7 +51,12 @@ def documents_section(selected_config):
             for i, row in enumerate(doc_list):
                 row_cols = st.columns(col_widths)
                 for j, col in enumerate(columns):
-                    row_cols[j].write(str(row.get(col, "")))
+                    value = str(row.get(col, ""))
+                    if col in ('id', 'document_id', 'doc_id'):
+                        # Render as code with copy button
+                        row_cols[j].code(value, language="")
+                    else:
+                        row_cols[j].write(value)
                 doc_id = str(row.get('id') or row.get('document_id') or row.get('doc_id'))
                 clean_doc_id = doc_id.strip().strip('"')
                 with row_cols[-1]:
@@ -75,16 +82,26 @@ def documents_section(selected_config):
     # --- Get Chunks ---
     with tabs[1]:
         st.subheader("Get Chunks by Document ID")
-        doc_id = st.text_input("Document ID for Chunks")
-        if st.button("Get Chunks") and doc_id:
-            try:
-                clean_doc_id = doc_id.strip().strip('"')
-                params = {"configuration_name": selected_config} if selected_config else {}
-                resp = requests.get(f"{API_BASE_URL}/documents/{clean_doc_id}/chunks", params=params)
-                st.write(f"Status: {resp.status_code}")
-                st.json(resp.json())
-            except Exception as e:
-                st.error(f"Failed to get chunks: {e}")
+        # If doc_id was set from a hyperlink click, use it
+        doc_id = st.session_state.get('get_chunks_doc_id', "")
+        doc_id = st.text_input("Document ID for Chunks", value=doc_id, key="get_chunks_doc_id_input")
+        auto_trigger = st.session_state.get('doc_tab_index', 0) == 1 and st.session_state.get('get_chunks_doc_id')
+        include_vector = st.checkbox("Include Vectors", value=False, key="get_chunks_include_vector")
+        if st.button("Get Chunks") or auto_trigger:
+            if doc_id:
+                try:
+                    clean_doc_id = doc_id.strip().strip('"')
+                    params = {"configuration_name": selected_config} if selected_config else {}
+                    params["include_vectors"] = str(include_vector).lower()
+                    resp = requests.get(f"{API_BASE_URL}/documents/{clean_doc_id}/chunks", params=params)
+                    st.write(f"Status: {resp.status_code}")
+                    st.json(resp.json())
+                except Exception as e:
+                    st.error(f"Failed to get chunks: {e}")
+            # Reset auto-trigger so it doesn't repeat
+            if auto_trigger:
+                st.session_state['doc_tab_index'] = 1
+                st.session_state['get_chunks_doc_id'] = ""
     # --- Upload Document ---
     with tabs[2]:
         st.subheader("Upload Document")
@@ -109,7 +126,7 @@ def documents_section(selected_config):
         doc4 = st.text_area("Document 4", key="upload_text_doc4")
         docs = [doc1, doc2, doc3, doc4]
         if st.button("Upload Texts"):
-            payload_docs = [{"text": d} for d in docs if d.strip()]
+            payload_docs = [{"content": d} for d in docs if d.strip()]
             if not payload_docs:
                 st.error("No documents to upload.")
             else:
@@ -132,7 +149,7 @@ def documents_section(selected_config):
                     st.error(f"Failed to upload text documents: {e}")
 
     # --- Delete Document ---
-    with tabs[3]:
+    with tabs[4]:
         st.subheader("Delete Document by ID")
         doc_id = st.text_input("Document ID to Delete")
         if st.button("Delete Document") and doc_id:

@@ -186,7 +186,6 @@ class GenerationConfig(BaseModel):
         return self
 
 class RAGConfig(BaseModel):
-    configuration_name: str = Field(default="default", min_length=1)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     vector_store: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
