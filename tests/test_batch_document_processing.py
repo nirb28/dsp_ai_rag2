@@ -6,6 +6,9 @@ processing them through the RAG pipeline, and running queries.
 
 python tests/test_batch_document_processing.py
 python tests/test_batch_document_processing.py --folder your_folder_name --query "Your first query" --query "Your second query"
+
+python tests/test_batch_document_processing.py --folder ml_ai_basics
+
 """
 
 # Fix Python path for direct script execution
@@ -379,16 +382,11 @@ if __name__ == "__main__":
             # Wait for indexing
             time.sleep(2)
             
-            # Run queries if specified
+            # Only run queries if explicitly provided
             if args.query:
                 run_queries(client, configuration_name, args.query)
             else:
-                # Run default queries for 401k
-                default_queries = [
-                    "What are 401k plans?",
-                    "What are the benefits of 401k plans for small businesses?"
-                ]
-                run_queries(client, configuration_name, default_queries)
+                print("\nNo queries provided. Use --query to specify queries to run.")
             
             # Clean up
             client.delete(f"/api/v1/configurations/{configuration_name}")
@@ -425,16 +423,11 @@ if __name__ == "__main__":
         # Wait for indexing
         time.sleep(2)
         
-        # Run queries if specified
+        # Only run queries if explicitly provided
         if args.query:
             run_queries(client, configuration_name, args.query)
         else:
-            # Run default queries for 401k
-            default_queries = [
-                "What are 401k plans?",
-                "What are the benefits of 401k plans for small businesses?"
-            ]
-            run_queries(client, configuration_name, default_queries)
+            print("\nNo queries provided. Use --query to specify queries to run.")
         
         # Clean up
         client.delete(f"/api/v1/configurations/{configuration_name}")
