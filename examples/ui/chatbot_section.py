@@ -39,7 +39,11 @@ def chatbot_section(selected_config):
         st.markdown("**Config**")
         system_prompt = st.text_area("System Prompt", value="", key="chatbot_system_prompt")
 
-    send = st.button("Send")
+    col_send, col_clear = st.columns([1, 1])
+    with col_send:
+        send = st.button("Send")
+    with col_clear:
+        clear = st.button("Clear Chat", key="clear_chat_btn")
 
     if send and user_input:
         payload = {
@@ -63,14 +67,20 @@ def chatbot_section(selected_config):
         answer = response.get("answer") or response.get("result") or str(response)
         st.session_state.chat_history.append(("user", user_input))
         st.session_state.chat_history.append(("bot", answer))
+        st.session_state.raw_json = response
         st.session_state.clear_chat_input = True  # set flag to clear on next run
         st.experimental_rerun()
 
-    # Clear chat button
-    if st.button("Clear Chat", key="clear_chat_btn"):
+    if clear:
         st.session_state.chat_history = []
+        st.session_state.raw_json = None
         st.experimental_rerun()
 
     for role, msg in st.session_state.chat_history[-10:]:
         css_class = "user" if role == "user" else "bot"
         st.markdown(f'<div class="chat-message {css_class}"><b>{role.title()}:</b> {msg}</div>', unsafe_allow_html=True)
+
+    # Show raw JSON in collapsible section
+    if st.session_state.get("raw_json"):
+        with st.expander("Show Raw JSON Response"):
+            st.json(st.session_state.raw_json)
