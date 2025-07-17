@@ -83,7 +83,7 @@ class ErrorResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
 
 class ConfigurationInfo(BaseModel):
-    name: str
+    configuration_name: str
     document_count: int
     created_at: Optional[datetime] = None
     last_updated: Optional[datetime] = None

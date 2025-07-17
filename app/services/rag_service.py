@@ -383,7 +383,7 @@ class RAGService:
                 # Don't try to connect to vector store or get document count
                 # Just return the configuration information
                 configurations.append({
-                    'name': configuration_name,
+                    'configuration_name': configuration_name,  # Add the new field
                     'document_count': 0,  # Default to 0 since we're not connecting to the store
                     'config': config.dict()
                 })

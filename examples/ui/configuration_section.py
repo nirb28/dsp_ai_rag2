@@ -88,11 +88,18 @@ def configuration_section():
     with tabs[2]:
         st.subheader("Delete Configuration")
         config_name = st.text_input("Configuration Name to Delete")
-        if st.button("Delete Configuration"):
+        if st.button("Delete Configuration") and config_name:
             try:
-                resp = requests.delete(f"{API_BASE_URL}/delete_configuration/{config_name}")
+                resp = requests.delete(f"{API_BASE_URL}/configurations/{config_name}")
                 st.write(f"Status: {resp.status_code}")
                 st.json(resp.json())
+                # Refresh configs for left section after delete
+                if 'config_table' in st.session_state:
+                    configs = get_configurations()
+                    if isinstance(configs, dict) and "configurations" in configs:
+                        st.session_state.config_table = configs["configurations"]
+                    elif isinstance(configs, list):
+                        st.session_state.config_table = configs
             except Exception as e:
                 st.error(f"Failed to delete configuration: {e}")
     # --- Duplicate Configuration ---
@@ -118,27 +125,41 @@ def configuration_section():
         config_map = {}
         if isinstance(configs, dict) and "configurations" in configs:
             for c in configs["configurations"]:
-                name = c.get("name") or c.get("config_name") or c.get("id")
+                name = c.get("configuration_name") or c.get("name") or c.get("config_name") or c.get("id")
                 if name:
                     config_names.append(name)
                     config_map[name] = c
         elif isinstance(configs, list):
             for c in configs:
-                name = c.get("name") or c.get("config_name") or c.get("id")
+                name = c.get("configuration_name") or c.get("name") or c.get("config_name") or c.get("id")
                 if name:
                     config_names.append(name)
                     config_map[name] = c
         selected = st.selectbox("Select Configuration to Edit", config_names) if config_names else None
         config_json = None
         if selected:
-            config_json = config_map[selected]
+            # Fetch the specific configuration using the /configurations/:configuration_name endpoint
+            try:
+                resp = requests.get(f"{API_BASE_URL}/configurations/{selected}")
+                if resp.status_code == 200:
+                    config_json = resp.json()
+                else:
+                    st.error(f"Failed to fetch configuration: Status {resp.status_code}")
+                    st.json(resp.json())
+            except Exception as e:
+                st.error(f"Error fetching configuration: {e}")
+                config_json = config_map[selected]  # Fallback to the list data
             import json
+            col1, col2 = st.columns([1, 5])
+            with col1:
+                save_button = st.button("Save Configuration")
+            
             editable_json = st.text_area(
                 "Edit Configuration JSON",
                 value=json.dumps(config_json, indent=2, ensure_ascii=False),
-                height=300,
+                height=500,
             )
-            if st.button("Save Configuration"):
+            if save_button:
                 try:
                     new_config = json.loads(editable_json)
                     resp = requests.post(f"{API_BASE_URL}/configurations", json=new_config)

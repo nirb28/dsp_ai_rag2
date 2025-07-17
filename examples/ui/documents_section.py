@@ -12,7 +12,8 @@ def documents_section(selected_config):
         "Get Chunks",
         "Upload Document",
         "Upload Text",
-        "Delete Document"
+        "Delete Document",
+        "Delete All Documents"
     ])
     # --- List Documents ---
     with tabs[0]:
@@ -161,3 +162,20 @@ def documents_section(selected_config):
                 st.json(resp.json())
             except Exception as e:
                 st.error(f"Failed to delete document: {e}")
+                
+    # --- Delete All Documents ---
+    with tabs[5]:
+        st.subheader("Delete All Documents")
+        st.warning("⚠️ This will delete ALL documents from the system. This action cannot be undone.")
+        confirm = st.checkbox("I understand that this will permanently delete all documents")
+        params = {"confirm": "true"}
+        if selected_config:
+            params["configuration_name"] = selected_config
+        if st.button("Delete All Documents", disabled=not confirm):
+            try:
+                resp = requests.delete(f"{API_BASE_URL}/documents", params=params)
+                st.write(f"Status: {resp.status_code}")
+                st.json(resp.json())
+                st.success("All documents have been deleted successfully.")
+            except Exception as e:
+                st.error(f"Failed to delete all documents: {e}")

@@ -367,7 +367,7 @@ async def list_configurations(names_only: bool = False):
             configurations = []
             for data in configurations_data:
                 configurations.append(ConfigurationInfo(
-                    name=data['name'],
+                    configuration_name=data['configuration_name'],
                     document_count=data['document_count'],
                     created_at=data.get('created_at'),
                     last_updated=data.get('last_updated'),
