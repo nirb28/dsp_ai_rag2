@@ -66,6 +66,11 @@ def chatbot_section(selected_config):
         st.session_state.clear_chat_input = True  # set flag to clear on next run
         st.experimental_rerun()
 
+    # Clear chat button
+    if st.button("Clear Chat", key="clear_chat_btn"):
+        st.session_state.chat_history = []
+        st.experimental_rerun()
+
     for role, msg in st.session_state.chat_history[-10:]:
         css_class = "user" if role == "user" else "bot"
         st.markdown(f'<div class="chat-message {css_class}"><b>{role.title()}:</b> {msg}</div>', unsafe_allow_html=True)
