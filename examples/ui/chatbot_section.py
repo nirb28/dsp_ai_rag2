@@ -58,10 +58,12 @@ def chatbot_section(selected_config):
             },
             "config": {
                 "system_prompt": system_prompt
-            }
+            },
+            "include_metadata": True,
+            "generate": True
         }
         if selected_config:
-            payload["configuration"] = selected_config
+            payload["configuration_name"] = selected_config
         from utils import query_rag
         response = query_rag(payload)
         answer = response.get("answer") or response.get("result") or str(response)
