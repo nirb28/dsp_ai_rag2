@@ -24,10 +24,7 @@ def get_configurations():
         st.error(f"Failed to fetch configurations: {e}")
         return {}
 
-def query_rag(query, configuration=None):
-    payload = {"query": query}
-    if configuration:
-        payload["configuration"] = configuration
+def query_rag(payload):
     try:
         resp = requests.post(f"{API_BASE_URL}/query", json=payload)
         resp.raise_for_status()
