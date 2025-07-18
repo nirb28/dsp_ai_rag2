@@ -87,8 +87,8 @@ class EmbeddingService:
                 model_value = str(model_value)
                 # Try to determine the best method for this custom model
                 if model_value.startswith("sentence-transformers/"):
-                    model_name = model_value.replace("sentence-transformers/", "")
-                    return self._embed_with_local_server(texts, model_name)
+                    # Pass the full model name including the prefix
+                    return self._embed_with_local_server(texts, model_value)
                 else:
                     # Default to local server with the custom model name
                     return self._embed_with_local_server(texts, model_value)
@@ -97,8 +97,8 @@ class EmbeddingService:
                 
             if model_value.startswith("sentence-transformers/"):
                 # Redirect to local model server for sentence transformers
-                model_name = model_value.replace("sentence-transformers/", "")
-                return self._embed_with_local_server(texts, model_name)
+                # Pass the full model name including the prefix
+                return self._embed_with_local_server(texts, model_value)
             elif self.config.model == EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002:
                 return self._embed_with_openai(texts)
             elif self.config.model == EmbeddingModel.TRITON_EMBEDDING:
@@ -189,9 +189,20 @@ class EmbeddingService:
             if specific_model:
                 model_name = specific_model
             else:
-                model_name = self.config.model.value.replace("local-model-server/", "") \
-                            if self.config.model.value.startswith("local-model-server/") \
-                            else "all-MiniLM-L6-v2"  # default model if none specified
+                # Use the model name exactly as specified in the config
+                # Don't strip any prefixes like sentence-transformers/
+                if isinstance(self.config.model, EmbeddingModel):
+                    model_name = self.config.model.value
+                else:
+                    # For custom model names (strings)
+                    model_name = str(self.config.model)
+                
+                # Only replace local-model-server prefix if it exists
+                if model_name.startswith("local-model-server/"):
+                    model_name = model_name.replace("local-model-server/", "")
+                # If no model specified, use default
+                if not model_name:
+                    model_name = "sentence-transformers/all-MiniLM-L6-v2"  # default model if none specified
             
             # Format the request according to the model server API
             payload = {

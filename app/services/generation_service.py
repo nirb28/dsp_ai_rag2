@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 class GroqGenerationService:
     def __init__(self, config: GenerationConfig):
         self.config = config
-        self.api_key = settings.GROQ_API_KEY
+        self.api_key = config.api_key
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
         
         if not self.api_key:
-            raise ValueError("Groq API key not provided")
+            raise ValueError("Groq API key not provided in configuration")
 
     async def generate_response(
         self, 
@@ -205,9 +205,13 @@ class OpenAICompatibleGenerationService:
         self.config = config
         self.server_url = config.server_url
         self.model = config.model
-        
+        self.api_key = config.api_key
+
         if not self.server_url:
             raise ValueError("Server URL not provided for OpenAI compatible endpoint")
+            
+        if not self.api_key:
+            logging.warning("No API key provided for OpenAI compatible endpoint. Some servers may require authentication.")
             
     async def generate_response(
         self, 
@@ -261,12 +265,18 @@ Please provide a comprehensive answer based on the context above."""
             if self.config.top_k is not None:
                 payload["top_k"] = self.config.top_k
                 
+            # Prepare headers
+            headers = {"Content-Type": "application/json"}
+            # Add Authorization header if API key is available
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+             
             # Make request
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
                     endpoint,
                     json=payload,
-                    headers={"Content-Type": "application/json"}
+                    headers=headers
                 )
                 response.raise_for_status()
                 

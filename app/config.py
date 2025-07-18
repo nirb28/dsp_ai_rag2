@@ -171,6 +171,7 @@ class RerankerConfig(BaseModel):
 class GenerationConfig(BaseModel):
     model: str = Field(default="llama3-8b-8192", description="Model name as a string - not restricted to enum values")
     provider: LLMProvider = Field(default=LLMProvider.GROQ, description="The LLM provider type")
+    api_key: Optional[str] = Field(default=None, description="API key for the provider (if required)")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1024, ge=1, le=4096)
     top_p: float = Field(default=0.9, ge=0.0, le=1.0)
