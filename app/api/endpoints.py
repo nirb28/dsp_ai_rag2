@@ -19,9 +19,10 @@ from app.models import (
     ConfigurationNamesResponse, RetrieveRequest, RetrieveResponse,
     TextDocumentsUploadRequest, TextDocumentsUploadResponse,
     DuplicateConfigurationRequest, DuplicateConfigurationResponse,
-    DeleteConfigurationResponse
+    DeleteConfigurationResponse, LLMConfigRequest, LLMConfigResponse,
+    LLMConfigListResponse
 )
-from app.config import RAGConfig, settings
+from app.config import RAGConfig, LLMConfig, LLMProvider, settings
 from app.services.rag_service import RAGService
 from app.services.vector_store import VectorStoreManager, FAISSVectorStore
 
@@ -261,6 +262,16 @@ async def query_documents(request: QueryRequest):
             context_items = [item.dict() for item in request.context_items]
             logger.info(f"Using {len(context_items)} context items for query")
         
+        # Prepare query expansion if provided
+        query_expansion_dict = None
+        if request.query_expansion:
+            query_expansion_dict = {
+                'enabled': request.query_expansion.enabled,
+                'strategy': request.query_expansion.strategy,
+                'llm_config_name': request.query_expansion.llm_config_name,
+                'num_queries': request.query_expansion.num_queries
+            }
+        
         response = await rag_service.query(
             query=request.query,
             configuration_name=request.configuration_name,
@@ -268,7 +279,8 @@ async def query_documents(request: QueryRequest):
             similarity_threshold=request.similarity_threshold,
             context_items=request.context_items,
             config_override=config if temp_config else None,
-            system_prompt=system_prompt
+            system_prompt=system_prompt,
+            query_expansion=query_expansion_dict
         )
         
         # Filter metadata if requested
@@ -635,11 +647,18 @@ async def retrieve_documents(request: RetrieveRequest):
         all_results = []
         used_configs = []
         
+        # Prepare query expansion if provided
+        query_expansion_dict = None
+        if request.query_expansion:
+            query_expansion_dict = {
+                'enabled': request.query_expansion.enabled,
+                'strategy': request.query_expansion.strategy,
+                'llm_config_name': request.query_expansion.llm_config_name,
+                'num_queries': request.query_expansion.num_queries
+            }
+        
         # Process each configuration
         for config_name in config_names:
-            # Get the vector store for this configuration
-            vector_store = rag_service._get_vector_store(config_name)
-            
             # Get configuration, with optional overrides from the request
             config = rag_service.get_configuration(config_name)
             temp_config = None
@@ -659,26 +678,22 @@ async def retrieve_documents(request: RetrieveRequest):
             k = request.k
             similarity_threshold = request.similarity_threshold if request.similarity_threshold is not None else config.retrieval.similarity_threshold
             
-            # Retrieve documents from this configuration
-            results = vector_store.similarity_search(
-                request.query,
+            # Use the new retrieve method with query expansion support
+            config_documents = await rag_service.retrieve(
+                query=request.query,
+                configuration_name=config_name,
                 k=k,
-                similarity_threshold=similarity_threshold
+                similarity_threshold=similarity_threshold,
+                query_expansion=query_expansion_dict
             )
             
-            # Process documents for this configuration
-            config_documents = []
-            for doc, score in results:
-                document = {
-                    'content': doc.page_content,
-                    'similarity_score': score,
-                    'source_configuration': config_name  # Track which configuration this came from
-                }
+            # Add source configuration to each document
+            for document in config_documents:
+                document['source_configuration'] = config_name
                 
-                if request.include_metadata:
-                    document['metadata'] = doc.metadata
-                    
-                config_documents.append(document)
+                # Filter metadata if not requested
+                if not request.include_metadata and 'metadata' in document:
+                    document['metadata'] = {}
             
             # Store results from this configuration
             if config_documents:
@@ -774,6 +789,124 @@ async def retrieve_documents(request: RetrieveRequest):
         logger.error(f"Error retrieving documents: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+# LLM Configuration Management Endpoints
+
+@router.post("/llm-configs", response_model=LLMConfigResponse)
+async def create_llm_configuration(request: LLMConfigRequest):
+    """Create or update an LLM configuration for query expansion."""
+    try:
+        # Convert provider string to enum
+        try:
+            provider = LLMProvider(request.provider)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid provider: {request.provider}. Must be one of: {', '.join([p.value for p in LLMProvider])}"
+            )
+        
+        # Create LLM configuration
+        llm_config = LLMConfig(
+            name=request.name,
+            provider=provider,
+            model=request.model,
+            endpoint=request.endpoint,
+            api_key=request.api_key,
+            system_prompt=request.system_prompt,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            timeout=request.timeout
+        )
+        
+        # Save configuration
+        success = rag_service.set_llm_configuration(request.name, llm_config)
+        
+        if success:
+            # Prepare response (without API key for security)
+            response_config = llm_config.dict()
+            if response_config.get('api_key'):
+                response_config['api_key'] = "***REDACTED***"
+            
+            return LLMConfigResponse(
+                name=llm_config.name,
+                provider=llm_config.provider.value,
+                model=llm_config.model,
+                endpoint=llm_config.endpoint,
+                system_prompt=llm_config.system_prompt,
+                temperature=llm_config.temperature,
+                max_tokens=llm_config.max_tokens,
+                top_p=llm_config.top_p,
+                top_k=llm_config.top_k,
+                timeout=llm_config.timeout,
+                message=f"LLM configuration '{request.name}' created/updated successfully"
+            )
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save LLM configuration")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating LLM configuration: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Configuration error: {str(e)}")
+
+
+@router.get("/llm-configs", response_model=LLMConfigListResponse)
+async def list_llm_configurations():
+    """List all LLM configurations."""
+    try:
+        configurations = rag_service.get_llm_configurations()
+        return LLMConfigListResponse(
+            configurations=configurations,
+            total_count=len(configurations)
+        )
+    except Exception as e:
+        logger.error(f"Error listing LLM configurations: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/llm-configs/{config_name}", response_model=LLMConfigResponse)
+async def get_llm_configuration(config_name: str):
+    """Get a specific LLM configuration."""
+    try:
+        llm_config = rag_service.get_llm_configuration(config_name)
+        
+        return LLMConfigResponse(
+            name=llm_config.name,
+            provider=llm_config.provider.value,
+            model=llm_config.model,
+            endpoint=llm_config.endpoint,
+            system_prompt=llm_config.system_prompt,
+            temperature=llm_config.temperature,
+            max_tokens=llm_config.max_tokens,
+            top_p=llm_config.top_p,
+            top_k=llm_config.top_k,
+            timeout=llm_config.timeout,
+            message=f"LLM configuration '{config_name}' retrieved successfully"
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"LLM configuration '{config_name}' not found")
+    except Exception as e:
+        logger.error(f"Error getting LLM configuration: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.delete("/llm-configs/{config_name}")
+async def delete_llm_configuration(config_name: str):
+    """Delete an LLM configuration."""
+    try:
+        success = rag_service.delete_llm_configuration(config_name)
+        if success:
+            return {"message": f"LLM configuration '{config_name}' deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail=f"LLM configuration '{config_name}' not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting LLM configuration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 

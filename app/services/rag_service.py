@@ -5,13 +5,14 @@ from pathlib import Path
 import json
 import os
 
-from app.config import RAGConfig, settings, process_env_vars_in_model
+from app.config import RAGConfig, LLMConfig, LLMProvider, settings, process_env_vars_in_model
 from app.models import Document, DocumentStatus, QueryResponse
 from app.services.document_processor import DocumentProcessor
 from app.services.embedding_service import EmbeddingService
 from app.services.vector_store import VectorStoreManager, FAISSVectorStore
 from app.services.generation_service import GenerationServiceFactory
 from app.services.reranker_service import RerankerService
+from app.services.query_expansion_service import QueryExpansionService
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,10 @@ class RAGService:
         self.embedding_services: Dict[str, EmbeddingService] = {}
         self.generation_services: Dict[str, Any] = {}
         self.reranker_services: Dict[str, RerankerService] = {}
+        self.llm_configurations: Dict[str, LLMConfig] = {}
+        self.query_expansion_service = QueryExpansionService()
         self._load_configurations()
+        self._load_llm_configurations()
 
     def _load_configurations(self):
         """Load configurations from storage."""
@@ -250,7 +254,8 @@ class RAGService:
         similarity_threshold: Optional[float] = None,
         context_items: Optional[List[Dict[str, Any]]] = None,
         config_override: Optional[RAGConfig] = None,
-        system_prompt: Optional[str] = None
+        system_prompt: Optional[str] = None,
+        query_expansion: Optional[Dict[str, Any]] = None
     ) -> QueryResponse:
         """Query the RAG system with optional context injection and reranking.
     
@@ -296,34 +301,74 @@ class RAGService:
             k = k or config.retrieval_k
             similarity_threshold = similarity_threshold or config.similarity_threshold
             
-            # Context injection functionality removed
+            # Handle query expansion if requested
+            queries_to_search = [query]  # Always include original query
+            if query_expansion and query_expansion.get('enabled', True):
+                try:
+                    llm_config_name = query_expansion.get('llm_config_name')
+                    if llm_config_name:
+                        llm_config = self.get_llm_configuration(llm_config_name)
+                        strategy = query_expansion.get('strategy', 'fusion')
+                        num_queries = query_expansion.get('num_queries', 3)
+                        
+                        expanded_queries = await self.query_expansion_service.expand_query(
+                            query, llm_config, strategy, num_queries
+                        )
+                        queries_to_search = expanded_queries
+                        logger.info(f"Using {len(queries_to_search)} queries for retrieval (including original)")
+                except Exception as e:
+                    logger.error(f"Query expansion failed: {str(e)}. Using original query only.")
+                    queries_to_search = [query]
             
-            # Retrieve relevant documents
+            # Retrieve relevant documents using all queries
+            all_results = []
+            
             # Pass the freshly created embedding service to override the one in the vector store
             if hasattr(vector_store, 'embedding_service'):
                 # Store the original embedding service
                 original_embedding_service = vector_store.embedding_service
                 # Temporarily replace with our current embedding service
                 vector_store.embedding_service = embedding_service
+            
+            for q in queries_to_search:
+                results = vector_store.similarity_search(
+                    q,
+                    k=k if not reranker_service.config.enabled else max(k, reranker_service.config.top_n),
+                    similarity_threshold=similarity_threshold
+                )
                 
-            results = vector_store.similarity_search(
-                query,
-                k=k if not reranker_service.config.enabled else max(k, reranker_service.config.top_n),
-                similarity_threshold=similarity_threshold
-            )
+                # Add query source information to results
+                query_results = [(doc, score, q) for doc, score in results]
+                all_results.append(query_results)
             
             # Restore the original embedding service if we changed it
             if hasattr(vector_store, 'embedding_service') and 'original_embedding_service' in locals():
                 vector_store.embedding_service = original_embedding_service
             
+            # Merge and deduplicate results if multiple queries were used
+            if len(queries_to_search) > 1:
+                merged_results = self._merge_query_results(all_results, k * 2)  # Get more for reranking
+            else:
+                merged_results = all_results[0] if all_results else []
+            
             # Prepare context documents
             context_docs = []
-            for doc, score in results:
-                context_docs.append({
-                    'content': doc.page_content,
-                    'metadata': doc.metadata,
-                    'similarity_score': score
-                })
+            for item in merged_results:
+                if len(item) == 3:  # (doc, score, query)
+                    doc, score, source_query = item
+                    context_docs.append({
+                        'content': doc.page_content,
+                        'metadata': doc.metadata,
+                        'similarity_score': score,
+                        'source_query': source_query if len(queries_to_search) > 1 else None
+                    })
+                else:  # (doc, score)
+                    doc, score = item
+                    context_docs.append({
+                        'content': doc.page_content,
+                        'metadata': doc.metadata,
+                        'similarity_score': score
+                    })
             
             # Apply reranking if enabled
             if reranker_service.config.enabled and context_docs:
@@ -505,5 +550,220 @@ class RAGService:
             }
             
         except Exception as e:
-            logger.error(f"Error duplicating configuration: {str(e)}")
+            logger.info(f"Error duplicating configuration: {str(e)}")
+            raise
+    
+    def _load_llm_configurations(self):
+        """Load LLM configurations from storage."""
+        config_file = Path(settings.STORAGE_PATH) / "llm_configurations.json"
+        if config_file.exists():
+            try:
+                with open(config_file, 'r') as f:
+                    data = json.load(f)
+                    for name, config_dict in data.items():
+                        config = LLMConfig(**config_dict)
+                        config = process_env_vars_in_model(config)
+                        self.llm_configurations[name] = config
+                logger.info(f"Loaded {len(self.llm_configurations)} LLM configurations")
+            except Exception as e:
+                logger.error(f"Error loading LLM configurations: {str(e)}")
+                # Don't raise here, just log the error
+    
+    def _save_llm_configurations(self):
+        """Save LLM configurations to storage."""
+        try:
+            config_file = Path(settings.STORAGE_PATH) / "llm_configurations.json"
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            data = {}
+            for name, config in self.llm_configurations.items():
+                # Save configuration without sensitive data in logs
+                config_dict = config.dict()
+                # Don't log API keys
+                if 'api_key' in config_dict and config_dict['api_key']:
+                    config_dict['api_key'] = "***REDACTED***"
+                data[name] = config.dict()  # Save actual config with API key
+            
+            with open(config_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            logger.info("Saved LLM configurations")
+        except Exception as e:
+            logger.error(f"Error saving LLM configurations: {str(e)}")
+    
+    def set_llm_configuration(self, name: str, config: LLMConfig) -> bool:
+        """Set LLM configuration."""
+        try:
+            # Process environment variables in the configuration
+            config = process_env_vars_in_model(config)
+            self.llm_configurations[name] = config
+            self._save_llm_configurations()
+            
+            logger.info(f"Set LLM configuration: {name}")
+            return True
+        except Exception as e:
+            logger.error(f"Error setting LLM configuration: {str(e)}")
+            return False
+    
+    def get_llm_configuration(self, name: str) -> LLMConfig:
+        """Get LLM configuration by name."""
+        if name not in self.llm_configurations:
+            raise KeyError(f"LLM configuration '{name}' not found")
+        
+        # Process environment variables
+        config = self.llm_configurations[name]
+        return process_env_vars_in_model(config)
+    
+    def get_llm_configurations(self) -> List[Dict[str, Any]]:
+        """Get all LLM configurations."""
+        configurations = []
+        for name, config in self.llm_configurations.items():
+            config_dict = config.dict()
+            # Don't expose API keys in list responses
+            if 'api_key' in config_dict and config_dict['api_key']:
+                config_dict['api_key'] = "***REDACTED***"
+            configurations.append(config_dict)
+        return configurations
+    
+    def delete_llm_configuration(self, name: str) -> bool:
+        """Delete LLM configuration."""
+        try:
+            if name in self.llm_configurations:
+                del self.llm_configurations[name]
+                self._save_llm_configurations()
+                logger.info(f"Deleted LLM configuration: {name}")
+                return True
+            else:
+                logger.warning(f"LLM configuration '{name}' not found for deletion")
+                return False
+        except Exception as e:
+            logger.error(f"Error deleting LLM configuration: {str(e)}")
+            return False
+    
+    def _merge_query_results(self, all_results: List[List], k: int) -> List:
+        """Merge results from multiple queries, removing duplicates and ranking by score."""
+        # Flatten all results
+        merged = []
+        seen_content = set()
+        
+        for query_results in all_results:
+            for item in query_results:
+                if len(item) == 3:  # (doc, score, query)
+                    doc, score, source_query = item
+                    content_hash = hash(doc.page_content)
+                    
+                    if content_hash not in seen_content:
+                        seen_content.add(content_hash)
+                        merged.append((doc, score, source_query))
+                else:  # (doc, score)
+                    doc, score = item
+                    content_hash = hash(doc.page_content)
+                    
+                    if content_hash not in seen_content:
+                        seen_content.add(content_hash)
+                        merged.append((doc, score))
+        
+        # Sort by similarity score (descending)
+        merged.sort(key=lambda x: x[1], reverse=True)
+        
+        # Return top k results
+        return merged[:k]
+    
+    async def retrieve(
+        self,
+        query: str,
+        configuration_name: str = "default",
+        k: int = 5,
+        similarity_threshold: float = 0.0,
+        query_expansion: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """Retrieve documents with optional query expansion.
+        
+        Args:
+            query: The search query
+            configuration_name: Configuration to use
+            k: Number of documents to retrieve
+            similarity_threshold: Minimum similarity threshold
+            query_expansion: Optional query expansion configuration
+            
+        Returns:
+            List of retrieved documents with metadata
+        """
+        try:
+            # Get configuration and services
+            config = self.get_configuration(configuration_name)
+            vector_store = self._get_vector_store(configuration_name)
+            embedding_service = self._get_embedding_service(configuration_name)
+            
+            # Handle query expansion if requested
+            queries_to_search = [query]  # Always include original query
+            if query_expansion and query_expansion.get('enabled', True):
+                try:
+                    llm_config_name = query_expansion.get('llm_config_name')
+                    if llm_config_name:
+                        llm_config = self.get_llm_configuration(llm_config_name)
+                        strategy = query_expansion.get('strategy', 'fusion')
+                        num_queries = query_expansion.get('num_queries', 3)
+                        
+                        expanded_queries = await self.query_expansion_service.expand_query(
+                            query, llm_config, strategy, num_queries
+                        )
+                        queries_to_search = expanded_queries
+                        logger.info(f"Using {len(queries_to_search)} queries for retrieval (including original)")
+                except Exception as e:
+                    logger.error(f"Query expansion failed: {str(e)}. Using original query only.")
+                    queries_to_search = [query]
+            
+            # Retrieve documents using all queries
+            all_results = []
+            
+            # Override embedding service if needed
+            if hasattr(vector_store, 'embedding_service'):
+                original_embedding_service = vector_store.embedding_service
+                vector_store.embedding_service = embedding_service
+            
+            for q in queries_to_search:
+                results = vector_store.similarity_search(
+                    q,
+                    k=k,
+                    similarity_threshold=similarity_threshold
+                )
+                
+                # Add query source information to results
+                query_results = [(doc, score, q) for doc, score in results]
+                all_results.append(query_results)
+            
+            # Restore original embedding service
+            if hasattr(vector_store, 'embedding_service') and 'original_embedding_service' in locals():
+                vector_store.embedding_service = original_embedding_service
+            
+            # Merge and deduplicate results if multiple queries were used
+            if len(queries_to_search) > 1:
+                merged_results = self._merge_query_results(all_results, k)
+            else:
+                merged_results = all_results[0] if all_results else []
+            
+            # Prepare response documents
+            documents = []
+            for item in merged_results:
+                if len(item) == 3:  # (doc, score, query)
+                    doc, score, source_query = item
+                    documents.append({
+                        'content': doc.page_content,
+                        'metadata': doc.metadata,
+                        'similarity_score': score,
+                        'source_query': source_query if len(queries_to_search) > 1 else None
+                    })
+                else:  # (doc, score)
+                    doc, score = item
+                    documents.append({
+                        'content': doc.page_content,
+                        'metadata': doc.metadata,
+                        'similarity_score': score
+                    })
+            
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Error retrieving documents: {str(e)}")
             raise

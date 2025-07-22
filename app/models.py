@@ -41,6 +41,13 @@ class ContextItem(BaseModel):
     timestamp: Optional[datetime] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+class QueryExpansionRequest(BaseModel):
+    """Query expansion configuration for requests."""
+    enabled: bool = Field(default=True, description="Whether to enable query expansion")
+    strategy: str = Field(default="fusion", description="Query expansion strategy: 'fusion' or 'multi_query'")
+    llm_config_name: str = Field(..., description="Name of the LLM configuration to use")
+    num_queries: int = Field(default=3, ge=1, le=10, description="Number of expanded queries to generate")
+
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000)
     configuration_name: str = "default"
@@ -49,6 +56,7 @@ class QueryRequest(BaseModel):
     include_metadata: bool = True
     context_items: Optional[List[ContextItem]] = Field(default=None, description="Additional context for context injection (e.g. chat history)")
     config: Optional[Dict[str, Any]] = Field(default=None, description="Optional partial config overrides for generation endpoint, embedding endpoint, or vector store")
+    query_expansion: Optional[QueryExpansionRequest] = Field(default=None, description="Optional query expansion configuration")
 
 class QueryResponse(BaseModel):
     query: str
@@ -111,6 +119,7 @@ class RetrieveRequest(BaseModel):
     config: Optional[Dict[str, Any]] = None  # Optional partial config overrides
     fusion_method: Optional[str] = "rrf"  # Options: "rrf", "simple"
     rrf_k_constant: int = Field(default=60, ge=1)  # Constant for RRF calculation
+    query_expansion: Optional[QueryExpansionRequest] = Field(default=None, description="Optional query expansion configuration")
 
 class RetrieveResponse(BaseModel):
     query: str
@@ -158,3 +167,39 @@ class DuplicateConfigurationResponse(BaseModel):
     config: Dict[str, Any]
     documents_copied: int = 0
     message: str
+
+
+class LLMConfigRequest(BaseModel):
+    """Request model for creating/updating LLM configurations."""
+    name: str = Field(..., description="Unique name for this LLM configuration")
+    provider: str = Field(..., description="The LLM provider type (groq, triton, openai_compatible)")
+    model: str = Field(..., description="Model name")
+    endpoint: str = Field(..., description="API endpoint URL")
+    api_key: Optional[str] = Field(default=None, description="API key for the provider (if required)")
+    system_prompt: Optional[str] = Field(default=None, description="System prompt for query expansion")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Generation temperature")
+    max_tokens: int = Field(default=512, ge=1, le=4096, description="Maximum tokens to generate")
+    top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Top-p sampling")
+    top_k: Optional[int] = Field(default=None, ge=1, le=100, description="Top-k sampling")
+    timeout: int = Field(default=30, ge=5, le=300, description="Request timeout in seconds")
+
+
+class LLMConfigResponse(BaseModel):
+    """Response model for LLM configuration operations."""
+    name: str
+    provider: str
+    model: str
+    endpoint: str
+    system_prompt: Optional[str] = None
+    temperature: float
+    max_tokens: int
+    top_p: float
+    top_k: Optional[int] = None
+    timeout: int
+    message: str
+
+
+class LLMConfigListResponse(BaseModel):
+    """Response model for listing LLM configurations."""
+    configurations: List[Dict[str, Any]]
+    total_count: int
