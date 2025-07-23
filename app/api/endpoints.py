@@ -794,6 +794,16 @@ async def retrieve_documents(request: RetrieveRequest):
 
 # LLM Configuration Management Endpoints
 
+@router.post("/llm-configs/reload")
+async def reload_llm_configs():
+    """Reload LLM configurations from file."""
+    success = rag_service.reload_llm_configurations()
+    if success:
+        return {"status": "success", "message": "LLM configurations reloaded."}
+    else:
+        return JSONResponse(status_code=500, content={"status": "error", "message": "Failed to reload LLM configurations."})
+
+
 @router.post("/llm-configs", response_model=LLMConfigResponse)
 async def create_llm_configuration(request: LLMConfigRequest):
     """Create or update an LLM configuration for query expansion."""

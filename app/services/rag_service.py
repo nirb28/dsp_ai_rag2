@@ -640,6 +640,17 @@ class RAGService:
             logger.error(f"Error deleting LLM configuration: {str(e)}")
             return False
     
+    def reload_llm_configurations(self) -> bool:
+        """Reload LLM configurations from file."""
+        try:
+            self.llm_configurations = {}
+            self._load_llm_configurations()
+            logger.info(f"Reloaded LLM configurations. Found {len(self.llm_configurations)} configs.")
+            return True
+        except Exception as e:
+            logger.error(f"Error reloading LLM configurations: {str(e)}")
+            return False
+
     def _merge_query_results(self, all_results: List[List], k: int) -> List:
         """Merge results from multiple queries, removing duplicates and ranking by score."""
         # Flatten all results

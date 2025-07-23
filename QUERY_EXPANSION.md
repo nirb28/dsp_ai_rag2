@@ -106,19 +106,6 @@ POST /retrieve
 
 ## Configuration Examples
 
-### Groq Configuration
-```json
-{
-  "name": "groq-fast",
-  "provider": "groq",
-  "model": "llama3-8b-8192",
-  "endpoint": "https://api.groq.com/openai/v1/chat/completions",
-  "api_key": "${GROQ_API_KEY}",
-  "temperature": 0.5,
-  "max_tokens": 256
-}
-```
-
 ### Local Model Configuration
 ```json
 {
@@ -133,17 +120,6 @@ POST /retrieve
 }
 ```
 
-### Triton Configuration
-```json
-{
-  "name": "triton-llm",
-  "provider": "triton",
-  "model": "llama3-vllm",
-  "endpoint": "http://localhost:8001",
-  "temperature": 0.7,
-  "max_tokens": 512
-}
-```
 
 ## Response Format
 
