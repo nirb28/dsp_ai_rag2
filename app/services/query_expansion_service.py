@@ -44,7 +44,45 @@ class QueryExpansionService:
         Returns:
             List of expanded queries including the original
         """
+        queries, _ = await self.expand_query_with_metadata(query, llm_config, strategy, num_queries)
+        return queries
+    
+    async def expand_query_with_metadata(
+        self, 
+        query: str, 
+        llm_config: LLMConfig, 
+        strategy: str = "fusion", 
+        num_queries: int = 3
+    ) -> tuple[List[str], Dict[str, Any]]:
+        """
+        Expand a query using the specified LLM and strategy, returning both queries and metadata.
+        
+        Args:
+            query: Original query to expand
+            llm_config: LLM configuration to use
+            strategy: Expansion strategy ("fusion" or "multi_query")
+            num_queries: Number of expanded queries to generate
+            
+        Returns:
+            Tuple of (expanded queries list, metadata dict)
+        """
+        import time
+        start_time = time.time()
+        
         logger.debug(f"[QueryExpansion] Request: query='{query}', strategy='{strategy}', num_queries={num_queries}, llm_config.name='{getattr(llm_config, 'name', None)}', provider='{getattr(llm_config, 'provider', None)}'")
+        
+        metadata = {
+            "original_query": query,
+            "strategy": strategy,
+            "llm_config_name": getattr(llm_config, 'name', None),
+            "llm_provider": getattr(llm_config, 'provider', None),
+            "requested_num_queries": num_queries,
+            "expansion_successful": False,
+            "error_message": None,
+            "expanded_queries": [],
+            "processing_time_seconds": 0.0
+        }
+        
         try:
             if strategy == "fusion":
                 logger.debug("[QueryExpansion] Using fusion strategy")
@@ -54,21 +92,34 @@ class QueryExpansionService:
                 expanded_queries = await self._multi_query_expansion(query, llm_config, num_queries)
             else:
                 logger.warning(f"Unknown expansion strategy: {strategy}. Using original query only.")
-                return [query]
+                metadata["error_message"] = f"Unknown expansion strategy: {strategy}"
+                metadata["processing_time_seconds"] = time.time() - start_time
+                return [query], metadata
             
             # Always include the original query
             if query not in expanded_queries:
                 expanded_queries.insert(0, query)
             
+            # Update metadata with successful expansion
+            metadata["expansion_successful"] = True
+            metadata["expanded_queries"] = expanded_queries
+            metadata["actual_num_queries"] = len(expanded_queries)
+            metadata["processing_time_seconds"] = time.time() - start_time
+            
             logger.info(f"Expanded query '{query}' into {len(expanded_queries)} queries using {strategy} strategy")
             logger.debug(f"[QueryExpansion] Expanded queries: {expanded_queries}")
-            return expanded_queries
+            return expanded_queries, metadata
             
         except Exception as e:
             logger.error(f"Error expanding query: {str(e)}")
             logger.debug(f"[QueryExpansion] Exception details:", exc_info=True)
+            
+            # Update metadata with error information
+            metadata["error_message"] = str(e)
+            metadata["processing_time_seconds"] = time.time() - start_time
+            
             # Return original query if expansion fails
-            return [query]
+            return [query], metadata
     
     async def _fusion_expansion(self, query: str, llm_config: LLMConfig, num_queries: int) -> List[str]:
         """

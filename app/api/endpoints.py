@@ -269,7 +269,8 @@ async def query_documents(request: QueryRequest):
                 'enabled': request.query_expansion.enabled,
                 'strategy': request.query_expansion.strategy,
                 'llm_config_name': request.query_expansion.llm_config_name,
-                'num_queries': request.query_expansion.num_queries
+                'num_queries': request.query_expansion.num_queries,
+                'include_metadata': request.query_expansion.include_metadata
             }
         
         response = await rag_service.query(
@@ -646,6 +647,7 @@ async def retrieve_documents(request: RetrieveRequest):
         # Prepare to store results from each configuration
         all_results = []
         used_configs = []
+        all_expansion_metadata = []
         
         # Prepare query expansion if provided
         query_expansion_dict = None
@@ -654,7 +656,8 @@ async def retrieve_documents(request: RetrieveRequest):
                 'enabled': request.query_expansion.enabled,
                 'strategy': request.query_expansion.strategy,
                 'llm_config_name': request.query_expansion.llm_config_name,
-                'num_queries': request.query_expansion.num_queries
+                'num_queries': request.query_expansion.num_queries,
+                'include_metadata': request.query_expansion.include_metadata
             }
         
         # Process each configuration
@@ -679,7 +682,7 @@ async def retrieve_documents(request: RetrieveRequest):
             similarity_threshold = request.similarity_threshold if request.similarity_threshold is not None else config.retrieval.similarity_threshold
             
             # Use the new retrieve method with query expansion support
-            config_documents = await rag_service.retrieve(
+            config_documents, config_expansion_metadata = await rag_service.retrieve(
                 query=request.query,
                 configuration_name=config_name,
                 k=k,
@@ -699,6 +702,11 @@ async def retrieve_documents(request: RetrieveRequest):
             if config_documents:
                 all_results.append(config_documents)
                 used_configs.append(config_name)
+                
+                # Store expansion metadata if available
+                if config_expansion_metadata:
+                    config_expansion_metadata['configuration_name'] = config_name
+                    all_expansion_metadata.append(config_expansion_metadata)
         
         # Combine results if multiple configurations
         documents = []
@@ -773,6 +781,19 @@ async def retrieve_documents(request: RetrieveRequest):
         if not multi_config:
             result_config_name = request.configuration_name
         
+        # Prepare combined expansion metadata
+        combined_expansion_metadata = None
+        if all_expansion_metadata:
+            if len(all_expansion_metadata) == 1:
+                # Single configuration metadata
+                combined_expansion_metadata = all_expansion_metadata[0]
+            else:
+                # Multiple configurations metadata
+                combined_expansion_metadata = {
+                    "configurations": all_expansion_metadata,
+                    "total_configurations": len(all_expansion_metadata)
+                }
+        
         return RetrieveResponse(
             query=request.query,
             documents=documents,
@@ -780,7 +801,8 @@ async def retrieve_documents(request: RetrieveRequest):
             configuration_name=result_config_name,
             configuration_names=used_configs if multi_config else None,
             total_found=len(documents),
-            fusion_method=fusion_method_used
+            fusion_method=fusion_method_used,
+            query_expansion_metadata=combined_expansion_metadata
         )
     
     except HTTPException:

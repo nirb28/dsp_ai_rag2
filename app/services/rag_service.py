@@ -303,6 +303,7 @@ class RAGService:
             
             # Handle query expansion if requested
             queries_to_search = [query]  # Always include original query
+            expansion_metadata = None
             if query_expansion and query_expansion.get('enabled', True):
                 try:
                     llm_config_name = query_expansion.get('llm_config_name')
@@ -310,10 +311,17 @@ class RAGService:
                         llm_config = self.get_llm_configuration(llm_config_name)
                         strategy = query_expansion.get('strategy', 'fusion')
                         num_queries = query_expansion.get('num_queries', 3)
+                        include_metadata = query_expansion.get('include_metadata', False)
                         
-                        expanded_queries = await self.query_expansion_service.expand_query(
-                            query, llm_config, strategy, num_queries
-                        )
+                        if include_metadata:
+                            expanded_queries, expansion_metadata = await self.query_expansion_service.expand_query_with_metadata(
+                                query, llm_config, strategy, num_queries
+                            )
+                        else:
+                            expanded_queries = await self.query_expansion_service.expand_query(
+                                query, llm_config, strategy, num_queries
+                            )
+                        
                         queries_to_search = expanded_queries
                         logger.info(f"Using {len(queries_to_search)} queries for retrieval (including original)")
                 except Exception as e:
@@ -367,7 +375,8 @@ class RAGService:
                     context_docs.append({
                         'content': doc.page_content,
                         'metadata': doc.metadata,
-                        'similarity_score': score
+                        'similarity_score': score,
+                        'source_query': None
                     })
             
             # Apply reranking if enabled
@@ -394,12 +403,45 @@ class RAGService:
             
             processing_time = time.time() - start_time
             
+            # Enhance expansion metadata with query results summary if metadata was requested
+            if expansion_metadata and len(queries_to_search) > 1:
+                # Create query results summary by analyzing the raw results before merging
+                query_results_summary = []
+                
+                for i, q in enumerate(queries_to_search):
+                    # Get raw results for this specific query from all_results
+                    query_raw_results = all_results[i] if i < len(all_results) else []
+                    
+                    # Count results from this query and get top score
+                    results_count = len(query_raw_results)
+                    top_score = 0.0
+                    
+                    if query_raw_results:
+                        # Extract scores from the raw results
+                        if len(query_raw_results[0]) == 3:  # (doc, score, query)
+                            scores = [item[1] for item in query_raw_results]
+                        else:  # (doc, score)
+                            scores = [item[1] for item in query_raw_results]
+                        top_score = max(scores) if scores else 0.0
+                    
+                    query_results_summary.append({
+                        "query": q,
+                        "is_original": q == query,
+                        "results_count": results_count,
+                        "top_similarity_score": top_score
+                    })
+                
+                expansion_metadata["query_results_summary"] = query_results_summary
+                expansion_metadata["total_unique_results"] = len(context_docs)
+                expansion_metadata["total_raw_results"] = sum(len(results) for results in all_results)
+            
             response = QueryResponse(
                 query=query,
                 answer=answer,
                 sources=context_docs,
                 processing_time=processing_time,
-                configuration_name=configuration_name
+                configuration_name=configuration_name,
+                query_expansion_metadata=expansion_metadata
             )
             
             logger.info(f"Processed query in {processing_time:.2f}s with {len(context_docs)} sources")
@@ -687,7 +729,7 @@ class RAGService:
         k: int = 5,
         similarity_threshold: float = 0.0,
         query_expansion: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """Retrieve documents with optional query expansion.
         
         Args:
@@ -698,7 +740,7 @@ class RAGService:
             query_expansion: Optional query expansion configuration
             
         Returns:
-            List of retrieved documents with metadata
+            Tuple of (documents list, expansion metadata dict or None)
         """
         try:
             # Get configuration and services
@@ -708,6 +750,7 @@ class RAGService:
             
             # Handle query expansion if requested
             queries_to_search = [query]  # Always include original query
+            expansion_metadata = None
             if query_expansion and query_expansion.get('enabled', True):
                 try:
                     llm_config_name = query_expansion.get('llm_config_name')
@@ -715,10 +758,17 @@ class RAGService:
                         llm_config = self.get_llm_configuration(llm_config_name)
                         strategy = query_expansion.get('strategy', 'fusion')
                         num_queries = query_expansion.get('num_queries', 3)
+                        include_metadata = query_expansion.get('include_metadata', False)
                         
-                        expanded_queries = await self.query_expansion_service.expand_query(
-                            query, llm_config, strategy, num_queries
-                        )
+                        if include_metadata:
+                            expanded_queries, expansion_metadata = await self.query_expansion_service.expand_query_with_metadata(
+                                query, llm_config, strategy, num_queries
+                            )
+                        else:
+                            expanded_queries = await self.query_expansion_service.expand_query(
+                                query, llm_config, strategy, num_queries
+                            )
+                        
                         queries_to_search = expanded_queries
                         logger.info(f"Using {len(queries_to_search)} queries for retrieval (including original)")
                 except Exception as e:
@@ -770,10 +820,43 @@ class RAGService:
                     documents.append({
                         'content': doc.page_content,
                         'metadata': doc.metadata,
-                        'similarity_score': score
+                        'similarity_score': score,
+                        'source_query': None
                     })
             
-            return documents
+            # Enhance expansion metadata with query results summary if metadata was requested
+            if expansion_metadata and len(queries_to_search) > 1:
+                # Create query results summary by analyzing the raw results before merging
+                query_results_summary = []
+                
+                for i, q in enumerate(queries_to_search):
+                    # Get raw results for this specific query from all_results
+                    query_raw_results = all_results[i] if i < len(all_results) else []
+                    
+                    # Count results from this query and get top score
+                    results_count = len(query_raw_results)
+                    top_score = 0.0
+                    
+                    if query_raw_results:
+                        # Extract scores from the raw results
+                        if len(query_raw_results[0]) == 3:  # (doc, score, query)
+                            scores = [item[1] for item in query_raw_results]
+                        else:  # (doc, score)
+                            scores = [item[1] for item in query_raw_results]
+                        top_score = max(scores) if scores else 0.0
+                    
+                    query_results_summary.append({
+                        "query": q,
+                        "is_original": q == query,
+                        "results_count": results_count,
+                        "top_similarity_score": top_score
+                    })
+                
+                expansion_metadata["query_results_summary"] = query_results_summary
+                expansion_metadata["total_unique_results"] = len(documents)
+                expansion_metadata["total_raw_results"] = sum(len(results) for results in all_results)
+            
+            return documents, expansion_metadata
             
         except Exception as e:
             logger.error(f"Error retrieving documents: {str(e)}")

@@ -47,6 +47,7 @@ class QueryExpansionRequest(BaseModel):
     strategy: str = Field(default="fusion", description="Query expansion strategy: 'fusion' or 'multi_query'")
     llm_config_name: str = Field(..., description="Name of the LLM configuration to use")
     num_queries: int = Field(default=3, ge=1, le=10, description="Number of expanded queries to generate")
+    include_metadata: bool = Field(default=False, description="Whether to include query expansion metadata in the response")
 
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000)
@@ -64,6 +65,7 @@ class QueryResponse(BaseModel):
     sources: List[Dict[str, Any]]
     processing_time: float
     configuration_name: str
+    query_expansion_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Metadata about query expansion if enabled")
 
 class ConfigurationRequest(BaseModel):
     config: Dict[str, Any]
@@ -129,6 +131,7 @@ class RetrieveResponse(BaseModel):
     configuration_names: Optional[List[str]] = None
     total_found: int
     fusion_method: Optional[str] = None
+    query_expansion_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Metadata about query expansion if enabled")
 
 
 class TextDocument(BaseModel):

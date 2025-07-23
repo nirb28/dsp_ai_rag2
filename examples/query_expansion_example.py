@@ -63,6 +63,25 @@ async def test_query_expansion(session: aiohttp.ClientSession, query: str, expan
                     print()
                 
                 print(f"🤖 Answer: {result['answer'][:200]}...")
+                
+                # Show query expansion metadata if available
+                if 'query_expansion_metadata' in result and result['query_expansion_metadata']:
+                    metadata = result['query_expansion_metadata']
+                    print(f"\n📊 Query Expansion Metadata:")
+                    print(f"  Strategy: {metadata.get('strategy', 'N/A')}")
+                    print(f"  LLM Config: {metadata.get('llm_config_name', 'N/A')}")
+                    print(f"  Processing Time: {metadata.get('processing_time_seconds', 0):.3f}s")
+                    print(f"  Expansion Successful: {metadata.get('expansion_successful', False)}")
+                    
+                    if 'query_results_summary' in metadata:
+                        print(f"  Query Results Summary:")
+                        for i, query_result in enumerate(metadata['query_results_summary']):
+                            original_marker = " (ORIGINAL)" if query_result.get('is_original') else ""
+                            print(f"    Query {i+1}{original_marker}: '{query_result['query']}'")
+                            print(f"      Results: {query_result['results_count']}, Top Score: {query_result['top_similarity_score']:.3f}")
+                    
+                    if metadata.get('error_message'):
+                        print(f"  Error: {metadata['error_message']}")
             else:
                 error = await response.text()
                 print(f"❌ Query failed: {error}")
@@ -92,6 +111,25 @@ async def test_query_expansion(session: aiohttp.ClientSession, query: str, expan
                         print(f"    From query: '{doc['source_query']}'")
                     print(f"    Content: {doc['content'][:100]}...")
                     print()
+                
+                # Show query expansion metadata if available
+                if 'query_expansion_metadata' in result and result['query_expansion_metadata']:
+                    metadata = result['query_expansion_metadata']
+                    print(f"\n📊 Query Expansion Metadata:")
+                    print(f"  Strategy: {metadata.get('strategy', 'N/A')}")
+                    print(f"  LLM Config: {metadata.get('llm_config_name', 'N/A')}")
+                    print(f"  Processing Time: {metadata.get('processing_time_seconds', 0):.3f}s")
+                    print(f"  Expansion Successful: {metadata.get('expansion_successful', False)}")
+                    
+                    if 'query_results_summary' in metadata:
+                        print(f"  Query Results Summary:")
+                        for i, query_result in enumerate(metadata['query_results_summary']):
+                            original_marker = " (ORIGINAL)" if query_result.get('is_original') else ""
+                            print(f"    Query {i+1}{original_marker}: '{query_result['query']}'")
+                            print(f"      Results: {query_result['results_count']}, Top Score: {query_result['top_similarity_score']:.3f}")
+                    
+                    if metadata.get('error_message'):
+                        print(f"  Error: {metadata['error_message']}")
             else:
                 error = await response.text()
                 print(f"❌ Retrieve failed: {error}")
@@ -154,7 +192,8 @@ async def main():
             "enabled": True,
             "strategy": "fusion",
             "llm_config_name": "groq-llama3",
-            "num_queries": 3
+            "num_queries": 3,
+            "include_metadata": True
         }
         
         # Test multi-query strategy
@@ -162,7 +201,8 @@ async def main():
             "enabled": True,
             "strategy": "multi_query",
             "llm_config_name": "groq-llama3",
-            "num_queries": 4
+            "num_queries": 4,
+            "include_metadata": True
         }
         
         for query in test_queries:
