@@ -17,13 +17,27 @@ from fastapi.encoders import jsonable_encoder
 from app.api.endpoints import router
 from app.models import ErrorResponse
 
-# Configure logging
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
+log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, log_level_str, logging.INFO)
+
+# Configure root logger
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
+# Set all existing loggers to this level
+for logger_name in logging.root.manager.loggerDict:
+    logging.getLogger(logger_name).setLevel(log_level)
+
 logger = logging.getLogger(__name__)
+print(f"Logger effective level: {logging.getLevelName(log_level)}")
 
 # Create FastAPI app
 app = FastAPI(

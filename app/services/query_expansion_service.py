@@ -44,10 +44,13 @@ class QueryExpansionService:
         Returns:
             List of expanded queries including the original
         """
+        logger.debug(f"[QueryExpansion] Request: query='{query}', strategy='{strategy}', num_queries={num_queries}, llm_config.name='{getattr(llm_config, 'name', None)}', provider='{getattr(llm_config, 'provider', None)}'")
         try:
             if strategy == "fusion":
+                logger.debug("[QueryExpansion] Using fusion strategy")
                 expanded_queries = await self._fusion_expansion(query, llm_config, num_queries)
             elif strategy == "multi_query":
+                logger.debug("[QueryExpansion] Using multi_query strategy")
                 expanded_queries = await self._multi_query_expansion(query, llm_config, num_queries)
             else:
                 logger.warning(f"Unknown expansion strategy: {strategy}. Using original query only.")
@@ -58,10 +61,12 @@ class QueryExpansionService:
                 expanded_queries.insert(0, query)
             
             logger.info(f"Expanded query '{query}' into {len(expanded_queries)} queries using {strategy} strategy")
+            logger.debug(f"[QueryExpansion] Expanded queries: {expanded_queries}")
             return expanded_queries
             
         except Exception as e:
             logger.error(f"Error expanding query: {str(e)}")
+            logger.debug(f"[QueryExpansion] Exception details:", exc_info=True)
             # Return original query if expansion fails
             return [query]
     
