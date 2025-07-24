@@ -7,6 +7,7 @@ import numpy as np
 from typing import Any, Dict, List, Optional, Union
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse
+from fastapi import Body
 import logging
 
 # Import the documentation router
@@ -599,7 +600,36 @@ async def debug_configuration(configuration_name: str, limit: int = 10, show_vec
               500: {"description": "Internal server error"}
           }
 )
-async def retrieve_documents(request: RetrieveRequest):
+
+async def retrieve_documents(
+    request: RetrieveRequest = Body(
+        ...,
+        examples={
+            "FullFeatureRequest": {
+                "summary": "Full feature example with multi-config, fusion, reranking, and query expansion",
+                "description": "Retrieves documents using multiple configurations, RRF fusion, reranking, and query expansion with metadata.",
+                "value": {
+                    "query": "What is Computer Vision?",
+                    "configuration_names": ["batch_rl-docs_test", "batch_ml_ai_basics_test"],
+                    "fusion_method": "rrf",
+                    "k": 10,
+                    "include_metadata": False,
+                    "similarity_threshold": 0.1,
+                    "use_reranking": True,
+                    "filter_after_reranking": False,
+                    "include_vectors": False,
+                    "query_expansion": {
+                        "enabled": True,
+                        "strategy": "multi_query",
+                        "llm_config_name": "nvidia-llama3-8b",
+                        "num_queries": 4,
+                        "include_metadata": True
+                    }
+                }
+            }
+        }
+    )
+):
     """Retrieve relevant documents from a configuration without generating a response.
     
     This endpoint allows direct access to the vector retrieval functionality without LLM generation.
