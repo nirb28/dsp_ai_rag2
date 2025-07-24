@@ -281,7 +281,8 @@ async def query_documents(request: QueryRequest):
             context_items=request.context_items,
             config_override=config if temp_config else None,
             system_prompt=system_prompt,
-            query_expansion=query_expansion_dict
+            query_expansion=query_expansion_dict,
+            filter_after_reranking=request.filter_after_reranking
         )
         
         # Filter metadata if requested
@@ -687,7 +688,8 @@ async def retrieve_documents(request: RetrieveRequest):
                 configuration_name=config_name,
                 k=k,
                 similarity_threshold=similarity_threshold,
-                query_expansion=query_expansion_dict
+                query_expansion=query_expansion_dict,
+                filter_after_reranking=request.filter_after_reranking
             )
             
             # Add source configuration to each document
@@ -750,7 +752,7 @@ async def retrieve_documents(request: RetrieveRequest):
             reranker_service = rag_service._get_reranker_service(primary_config)
             
             if reranker_service and reranker_service.config.enabled:
-                documents = await reranker_service.rerank(request.query, documents)
+                documents = await reranker_service.rerank(request.query, documents, filter_after_reranking=request.filter_after_reranking)
         
         # Include embedding vectors if requested
         if request.include_vectors and documents:

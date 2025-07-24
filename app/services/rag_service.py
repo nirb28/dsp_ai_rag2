@@ -255,7 +255,8 @@ class RAGService:
         context_items: Optional[List[Dict[str, Any]]] = None,
         config_override: Optional[RAGConfig] = None,
         system_prompt: Optional[str] = None,
-        query_expansion: Optional[Dict[str, Any]] = None
+        query_expansion: Optional[Dict[str, Any]] = None,
+        filter_after_reranking: bool = True
     ) -> QueryResponse:
         """Query the RAG system with optional context injection and reranking.
     
@@ -382,7 +383,7 @@ class RAGService:
             # Apply reranking if enabled
             if reranker_service.config.enabled and context_docs:
                 original_count = len(context_docs)
-                context_docs = await reranker_service.rerank(query, context_docs)
+                context_docs = await reranker_service.rerank(query, context_docs, filter_after_reranking=filter_after_reranking)
                 logger.info(f"Reranked documents: {original_count} → {len(context_docs)}")
                 
                 # Limit to original k if reranking returned more
@@ -728,7 +729,8 @@ class RAGService:
         configuration_name: str = "default",
         k: int = 5,
         similarity_threshold: float = 0.0,
-        query_expansion: Optional[Dict[str, Any]] = None
+        query_expansion: Optional[Dict[str, Any]] = None,
+        filter_after_reranking: bool = True
     ) -> tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """Retrieve documents with optional query expansion.
         

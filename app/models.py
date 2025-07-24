@@ -57,6 +57,7 @@ class QueryRequest(BaseModel):
     include_metadata: bool = True
     context_items: Optional[List[ContextItem]] = Field(default=None, description="Additional context for context injection (e.g. chat history)")
     config: Optional[Dict[str, Any]] = Field(default=None, description="Optional partial config overrides for generation endpoint, embedding endpoint, or vector store")
+    filter_after_reranking: bool = Field(default=True, description="Whether to apply score threshold filtering after reranking")
     query_expansion: Optional[QueryExpansionRequest] = Field(default=None, description="Optional query expansion configuration")
 
 class QueryResponse(BaseModel):
@@ -121,6 +122,7 @@ class RetrieveRequest(BaseModel):
     config: Optional[Dict[str, Any]] = None  # Optional partial config overrides
     fusion_method: Optional[str] = "rrf"  # Options: "rrf", "simple"
     rrf_k_constant: int = Field(default=60, ge=1)  # Constant for RRF calculation
+    filter_after_reranking: bool = Field(default=True, description="Whether to apply score threshold filtering after reranking")
     query_expansion: Optional[QueryExpansionRequest] = Field(default=None, description="Optional query expansion configuration")
 
 class RetrieveResponse(BaseModel):

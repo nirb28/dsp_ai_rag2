@@ -97,11 +97,9 @@ COMMON_MODELS = {
 }
     
 class RerankerModel(str, Enum):
-    """Models that can be used for reranking retrieved chunks."""
+    """Models that can be used for reranking retrieved chunks via endpoints."""
     NONE = "none"  # No reranking
     COHERE_RERANK = "cohere-rerank"  # Cohere Rerank API
-    BGE_RERANKER = "bge-reranker-large"  # BGE Reranker
-    SENTENCE_TRANSFORMERS_CROSS_ENCODER = "cross-encoder/ms-marco-MiniLM-L-6-v2"  # SentenceTransformers cross-encoder
     LOCAL_MODEL_SERVER = "local-model-server"  # Local model server endpoint
 
 class ChunkingConfig(BaseModel):

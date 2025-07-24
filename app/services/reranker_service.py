@@ -1,46 +1,34 @@
 import logging
 from typing import List, Dict, Any, Optional, Tuple
-import numpy as np
 import requests
-from sentence_transformers import CrossEncoder
 
 from app.config import RerankerConfig, RerankerModel, settings
 
 logger = logging.getLogger(__name__)
 
 class RerankerService:
-    """Service for reranking retrieved chunks using different models."""
+    """Service for reranking retrieved chunks using endpoint-based models."""
     
     def __init__(self, config: RerankerConfig):
         self.config = config
-        self.model = None
         
         if config.enabled:
-            self._initialize_model()
+            self._validate_configuration()
     
-    def _initialize_model(self) -> None:
-        """Initialize the reranker model based on configuration."""
+    def _validate_configuration(self) -> None:
+        """Validate the reranker configuration for endpoint-based reranking."""
         if not self.config.enabled:
             return
             
-        # Handle string models that are not in the enum
-        if not isinstance(self.config.model, RerankerModel):
-            logger.warning(f"Using custom reranker model not in enum: {self.config.model}. This is allowed but not officially supported.")
-            model_value = str(self.config.model)
-        else:
-            if self.config.model == RerankerModel.NONE:
-                return
-            model_value = self.config.model.value
-            
         try:
-            # Handle local model server case
+            # Handle model server case
             if isinstance(self.config.model, RerankerModel) and self.config.model == RerankerModel.LOCAL_MODEL_SERVER:
                 # Check if model server is reachable
                 server_url = self.config.server_url or settings.MODEL_SERVER_URL
                 if not server_url:
                     raise ValueError("Server URL not provided for model server reranker")
                 try:
-                    response = requests.get(f"{server_url}/health")
+                    response = requests.get(f"{server_url}/health", timeout=5)
                     if response.status_code == 200:
                         logger.info(f"Connected to model server for reranker at {server_url}")
                     else:
@@ -48,45 +36,30 @@ class RerankerService:
                 except Exception as e:
                     logger.warning(f"Could not connect to model server: {str(e)}")
                     
-            # Handle SentenceTransformers CrossEncoder case
-            elif isinstance(self.config.model, RerankerModel) and self.config.model == RerankerModel.SENTENCE_TRANSFORMERS_CROSS_ENCODER:
-                self.model = CrossEncoder(model_value)
-                logger.info(f"Initialized SentenceTransformers CrossEncoder reranker: {model_value}")
-                
-            # Handle BGE Reranker case
-            elif isinstance(self.config.model, RerankerModel) and self.config.model == RerankerModel.BGE_RERANKER:
-                self.model = CrossEncoder("BAAI/bge-reranker-large")
-                logger.info("Initialized BGE large reranker")
-                
             # Handle Cohere Rerank case
             elif isinstance(self.config.model, RerankerModel) and self.config.model == RerankerModel.COHERE_RERANK:
-                # Cohere requires API calls at rerank time, no model to load
+                # Validate Cohere API key
                 if not settings.COHERE_API_KEY:
                     logger.warning("Cohere API key not set. Reranking will be disabled.")
                     self.config.enabled = False
                 else:
                     logger.info("Using Cohere Rerank API for reranking")
             
-            # Handle custom models - try to use CrossEncoder with the model string
+            # For custom models, assume they are endpoint-based
             else:
-                try:
-                    # Try to load the model as a CrossEncoder
-                    self.model = CrossEncoder(model_value)
-                    logger.info(f"Initialized custom CrossEncoder reranker: {model_value}")
-                except Exception as e:
-                    logger.warning(f"Failed to initialize custom reranker model: {model_value}. Error: {str(e)}")
-                    logger.warning("Attempting to continue with the model, but it may not work as expected.")
+                logger.info(f"Using endpoint-based reranking with model: {self.config.model}")
                 
         except Exception as e:
-            logger.error(f"Failed to initialize reranker: {str(e)}")
+            logger.error(f"Failed to validate reranker configuration: {str(e)}")
             self.config.enabled = False
     
-    async def rerank(self, query: str, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def rerank(self, query: str, documents: List[Dict[str, Any]], filter_after_reranking: bool = True) -> List[Dict[str, Any]]:
         """Rerank documents based on relevance to the query.
         
         Args:
             query: User query
             documents: List of documents with 'content' and 'metadata' fields
+            filter_after_reranking: Whether to apply score threshold filtering after reranking
             
         Returns:
             Reordered list of documents with updated scores
@@ -95,57 +68,24 @@ class RerankerService:
             return documents
             
         try:
-            # Handle string models that are not in the enum
-            if not isinstance(self.config.model, RerankerModel):
-                # For custom models, if we have a loaded model, use it
-                if self.model:
-                    return self._rerank_with_local_model(query, documents)
-                else:
-                    # Try the model server as a fallback for custom models
-                    return await self._rerank_with_model_server(query, documents)
-            else:        
-                # Handle enum models
+            # Handle enum models
+            if isinstance(self.config.model, RerankerModel):
                 if self.config.model == RerankerModel.LOCAL_MODEL_SERVER:
-                    return await self._rerank_with_model_server(query, documents)
+                    return await self._rerank_with_model_server(query, documents, filter_after_reranking)
                 elif self.config.model == RerankerModel.COHERE_RERANK:
-                    return await self._rerank_with_cohere(query, documents)
-                elif self.model:
-                    return self._rerank_with_local_model(query, documents)
+                    return await self._rerank_with_cohere(query, documents, filter_after_reranking)
                 else:
-                    return documents
+                    # All other models use model server endpoint
+                    return await self._rerank_with_model_server(query, documents, filter_after_reranking)
+            else:
+                # Custom models use model server endpoint
+                return await self._rerank_with_model_server(query, documents, filter_after_reranking)
         except Exception as e:
             logger.error(f"Reranking failed: {str(e)}")
             return documents
     
-    def _rerank_with_local_model(self, query: str, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Rerank documents using a local cross-encoder model."""
-        document_texts = [doc["content"] for doc in documents]
-        
-        # Prepare query-document pairs
-        pairs = [(query, doc_text) for doc_text in document_texts]
-        
-        # Score pairs
-        scores = self.model.predict(pairs)
-        
-        # Create tuples of (document, score)
-        scored_docs = []
-        for i, score in enumerate(scores):
-            doc = documents[i].copy()
-            # Replace original score with reranking score
-            doc["original_similarity_score"] = doc.get("similarity_score", 0)
-            doc["similarity_score"] = float(score)
-            scored_docs.append((doc, score))
-        
-        # Sort by score in descending order
-        scored_docs.sort(key=lambda x: x[1], reverse=True)
-        
-        # Filter by score threshold
-        filtered_docs = [doc for doc, score in scored_docs if score >= self.config.score_threshold]
-        
-        # Return just the documents
-        return filtered_docs if filtered_docs else [doc for doc, _ in scored_docs][:1]
-    
-    async def _rerank_with_model_server(self, query: str, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+    async def _rerank_with_model_server(self, query: str, documents: List[Dict[str, Any]], filter_after_reranking: bool = True) -> List[Dict[str, Any]]:
         """Rerank documents using the model server endpoint."""
         try:
             # Get the server URL from config or settings
@@ -188,17 +128,20 @@ class RerankerService:
             # Sort by score in descending order
             reranked_docs.sort(key=lambda x: x[1], reverse=True)
             
-            # Filter by score threshold
-            filtered_docs = [doc for doc, score in reranked_docs if score >= self.config.score_threshold]
-            
-            # Return just the documents
-            return filtered_docs if filtered_docs else [doc for doc, _ in reranked_docs][:1]
+            # Apply score threshold filtering only if filter_after_reranking is True
+            if filter_after_reranking:
+                filtered_docs = [doc for doc, score in reranked_docs if score >= self.config.score_threshold]
+                # Return just the documents
+                return filtered_docs if filtered_docs else [doc for doc, _ in reranked_docs][:1]
+            else:
+                # Return all documents without filtering
+                return [doc for doc, _ in reranked_docs]
             
         except Exception as e:
             logger.error(f"Error with model server reranking: {str(e)}")
             return documents
 
-    async def _rerank_with_cohere(self, query: str, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def _rerank_with_cohere(self, query: str, documents: List[Dict[str, Any]], filter_after_reranking: bool = True) -> List[Dict[str, Any]]:
         """Rerank documents using Cohere's Rerank API."""
         try:
             import cohere
@@ -226,10 +169,13 @@ class RerankerService:
                 doc["similarity_score"] = result.relevance_score
                 reranked_docs.append(doc)
             
-            # Filter by score threshold
-            filtered_docs = [doc for doc in reranked_docs if doc["similarity_score"] >= self.config.score_threshold]
-            
-            return filtered_docs if filtered_docs else reranked_docs[:1]
+            # Apply score threshold filtering only if filter_after_reranking is True
+            if filter_after_reranking:
+                filtered_docs = [doc for doc in reranked_docs if doc["similarity_score"] >= self.config.score_threshold]
+                return filtered_docs if filtered_docs else reranked_docs[:1]
+            else:
+                # Return all documents without filtering
+                return reranked_docs
             
         except ImportError:
             logger.error("Cohere package not installed. Please install it with: pip install cohere")
