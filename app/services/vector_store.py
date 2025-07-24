@@ -19,6 +19,7 @@ from app.config import VectorStoreConfig, settings
 from app.services.embedding_service import EmbeddingService
 from app.services.base_vector_store import BaseVectorStore
 from app.services.bm25_store import BM25VectorStore
+from app.services.networkx_graph_store import NetworkXGraphStore
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class VectorStore(str, Enum):
     FAISS = "faiss"
     REDIS = "redis"
     BM25 = "bm25"
+    NETWORKX = "networkx"
 
 class FAISSVectorStore(BaseVectorStore):
     def __init__(self, config: VectorStoreConfig, embedding_service: EmbeddingService):
@@ -435,6 +437,20 @@ class VectorStoreManager:
                     embedding_service = EmbeddingService(embedding_config)
                 self.stores[configuration_name] = BM25VectorStore(configuration_config, embedding_service)
                 logger.info(f"Created BM25 vector store for configuration {configuration_name}")
+                
+            elif config.type == VectorStore.NETWORKX:
+                # For NetworkX, we need a specific path for the graph storage
+                configuration_config = {
+                    'type': config.type,
+                    'index_path': f"{config.index_path}/networkx",
+                    'name': configuration_name  # Pass configuration name to NetworkX store
+                }
+                # NetworkX can optionally use embeddings for enhanced similarity
+                embedding_service = None
+                if embedding_config.get('enabled', False):
+                    embedding_service = EmbeddingService(embedding_config)
+                self.stores[configuration_name] = NetworkXGraphStore(configuration_config, embedding_service)
+                logger.info(f"Created NetworkX graph store for configuration {configuration_name}")
             else:
                 raise ValueError(f"Unsupported vector store type: {config.type}")
                 

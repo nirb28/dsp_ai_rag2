@@ -1,0 +1,35 @@
+{
+  "networkx_graph_config": {
+    "vector_store": {
+      "type": "networkx",
+      "index_path": "./storage/networkx_graph",
+      "dimension": 384
+    },
+    "embedding": {
+      "enabled": false,
+      "model": "sentence-transformers/all-MiniLM-L6-v2",
+      "api_key": "",
+      "endpoint": ""
+    },
+    "generation": {
+      "enabled": true,
+      "model": "groq/llama3-8b-8192",
+      "api_key": "${GROQ_API_KEY}",
+      "endpoint": "https://api.groq.com/openai/v1",
+      "max_tokens": 1000,
+      "temperature": 0.7,
+      "system_prompt": "You are a helpful AI assistant. Use the provided context to answer questions accurately and concisely."
+    },
+    "reranker": {
+      "enabled": false,
+      "model": "none",
+      "api_key": "",
+      "endpoint": "",
+      "score_threshold": 0.5
+    },
+    "retrieval": {
+      "k": 5,
+      "similarity_threshold": 0.3
+    }
+  }
+}
