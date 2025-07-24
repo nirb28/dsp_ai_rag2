@@ -15,7 +15,7 @@ from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
 from langchain.docstore.document import Document as LangchainDocument
 
-from app.config import VectorStoreConfig, settings
+from app.config import VectorStoreConfig, VectorStore, settings
 from app.services.embedding_service import EmbeddingService
 from app.services.base_vector_store import BaseVectorStore
 from app.services.bm25_store import BM25VectorStore
@@ -23,11 +23,6 @@ from app.services.networkx_graph_store import NetworkXGraphStore
 
 logger = logging.getLogger(__name__)
 
-class VectorStore(str, Enum):
-    FAISS = "faiss"
-    REDIS = "redis"
-    BM25 = "bm25"
-    NETWORKX = "networkx"
 
 class FAISSVectorStore(BaseVectorStore):
     def __init__(self, config: VectorStoreConfig, embedding_service: EmbeddingService):

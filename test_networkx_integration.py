@@ -191,16 +191,21 @@ def test_graph_relationships():
 if __name__ == "__main__":
     print("🚀 Starting NetworkX Integration Tests\n")
     
-    # Run basic functionality test
-    success1 = test_networkx_basic_functionality()
-    
-    # Run relationship test
-    success2 = test_graph_relationships()
-    
-    if success1 and success2:
-        print("\n🎉 All tests passed! NetworkX integration is working correctly.")
-    else:
-        print("\n❌ Some tests failed. Please check the error messages above.")
+    try:
+        # Run basic functionality test
+        success1 = test_networkx_basic_functionality()
+        
+        # Run relationship test
+        success2 = test_graph_relationships()
+        
+        if success1 and success2:
+            print("\n🎉 All tests passed! NetworkX integration is working correctly.")
+        else:
+            print("\n❌ Some tests failed. Please check the error messages above.")
+    except Exception as e:
+        print(f"\n❌ Test execution failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
     print("\n💡 Next steps:")
     print("   1. Install NetworkX: pip install networkx")

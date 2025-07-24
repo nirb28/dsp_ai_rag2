@@ -75,6 +75,7 @@ class VectorStore(str, Enum):
     FAISS = "faiss"
     REDIS = "redis"
     BM25 = "bm25"  # Keyword-based search using BM25 algorithm
+    NETWORKX = "networkx"  # Graph-based search using NetworkX
 
 class EmbeddingModel(str, Enum):
     SENTENCE_TRANSFORMERS_ALL_MINILM = "sentence-transformers/all-MiniLM-L6-v2"

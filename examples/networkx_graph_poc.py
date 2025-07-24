@@ -25,7 +25,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from app.services.rag_service import RAGService
 from app.config import RAGConfig, VectorStoreConfig, EmbeddingConfig, GenerationConfig, RerankerConfig
-from app.models import QueryRequest, UploadRequest
+from app.models import QueryRequest, DocumentUploadRequest
 
 
 async def create_networkx_configuration():
@@ -40,14 +40,13 @@ async def create_networkx_configuration():
         embedding=EmbeddingConfig(
             enabled=False,  # NetworkX doesn't require embeddings for basic functionality
             model="sentence-transformers/all-MiniLM-L6-v2",
-            api_key="",
-            endpoint=""
+            endpoint="http://localhost:9001"
         ),
         generation=GenerationConfig(
             enabled=True,
-            model="groq/llama3-8b-8192",
-            api_key=os.getenv("GROQ_API_KEY", ""),
-            endpoint="https://api.groq.com/openai/v1",
+            model="meta/llama-3.3-70b-instruct",
+            api_key="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",
+            endpoint="https://integrate.api.nvidia.com",
             max_tokens=1000,
             temperature=0.7
         ),
@@ -135,7 +134,8 @@ async def demonstrate_graph_store():
     
     # Create NetworkX configuration
     print("\n📝 Creating NetworkX configuration...")
-    config = await create_networkx_configuration()
+    # config = await create_networkx_configuration()
+    config = rag_service.get_configuration("networkx_poc")
     rag_service.set_configuration("networkx_poc", config)
     print("✅ Configuration created successfully!")
     
@@ -145,13 +145,13 @@ async def demonstrate_graph_store():
     
     for i, doc in enumerate(documents, 1):
         print(f"   Uploading document {i}/5: {doc['filename']}")
-        result = rag_service.upload_text_content(
+        result = await rag_service.upload_text_content(
             content=doc["content"],
             filename=doc["filename"],
             configuration_name="networkx_poc",
             metadata=doc["metadata"]
         )
-        print(f"   ✅ Document uploaded with ID: {result['document_id']}")
+        print(f"   ✅ Document uploaded with ID: {result.id}")
     
     # Get graph statistics
     print("\n📊 Graph Statistics:")
@@ -178,7 +178,7 @@ async def demonstrate_graph_store():
         
         # Perform retrieval
         try:
-            documents, metadata = rag_service.retrieve(
+            documents, metadata = await rag_service.retrieve(
                 query=query,
                 configuration_name="networkx_poc",
                 k=3
@@ -207,7 +207,7 @@ async def demonstrate_graph_store():
             query = "What are the main applications of artificial intelligence?"
             print(f"🔍 Query: {query}")
             
-            response = rag_service.query(
+            response = await rag_service.query(
                 query=query,
                 configuration_name="networkx_poc",
                 k=3
