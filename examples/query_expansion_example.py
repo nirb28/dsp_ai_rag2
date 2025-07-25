@@ -139,12 +139,12 @@ async def test_query_expansion(session: aiohttp.ClientSession, query: str, expan
 
 async def main():
     """Main example function."""
-    print("🚀 Query Expansion Example for DSP AI RAG2")
+    print("Query Expansion Example for DSP AI RAG2")
     print("=" * 50)
     
     async with aiohttp.ClientSession() as session:
         # 1. Create LLM configurations
-        print("\n📝 Step 1: Creating LLM configurations...")
+        print("\nStep 1: Creating LLM configurations...")
         
         # Groq configuration
         groq_config = {
@@ -235,11 +235,11 @@ async def main():
                     error = await response.text()
                     print(f"❌ Failed to list configurations: {error}")
         except Exception as e:
-            print(f"❌ Error listing configurations: {str(e)}")
+            print(f"Error listing configurations: {str(e)}")
     
     print(f"\n{'='*60}")
-    print("✅ Query expansion example completed!")
-    print("\n💡 Tips:")
+    print("Query expansion example completed!")
+    print("\nTips:")
     print("  - Use 'fusion' strategy for semantically similar query variations")
     print("  - Use 'multi_query' strategy for exploring different aspects")
     print("  - Adjust num_queries based on your performance requirements")

@@ -8,7 +8,9 @@ Query expansion improves retrieval performance by generating multiple related qu
 
 ## Features
 
-### 🔧 LLM Configuration Management
+### Key Features
+
+### LLM Configuration Management
 
 Create and manage LLM configurations for query expansion:
 
@@ -17,7 +19,7 @@ Create and manage LLM configurations for query expansion:
 - **Custom System Prompts**: Tailor the expansion behavior
 - **Secure API Key Storage**: API keys are redacted in responses
 
-### 🎯 Query Expansion Strategies
+### Query Expansion Strategies
 
 #### Fusion Strategy
 - Generates semantically similar query variations
@@ -31,7 +33,7 @@ Create and manage LLM configurations for query expansion:
 - Provides comprehensive topic coverage
 - Best for exploratory search
 
-### 🔄 Result Processing
+### Result Processing
 
 - **Automatic Merging**: Combines results from multiple queries
 - **Deduplication**: Removes duplicate documents based on content

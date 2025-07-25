@@ -8,19 +8,19 @@ The NetworkX Graph Store represents documents as nodes in a graph and creates re
 
 ## Key Features
 
-### 🔗 Relationship-Based Storage
+### Relationship-Based Storage
 - Documents are stored as nodes in a NetworkX graph
 - Relationships are created based on shared entities and keywords
 - Graph structure enables discovery of related documents through traversal
 
-### 🧠 Intelligent Similarity Search
+### Intelligent Similarity Search
 - Uses multiple strategies for document retrieval:
   1. **Direct Matching**: Entity and keyword overlap
   2. **Graph Centrality**: Documents connected to many others score higher
   3. **Graph Traversal**: Expands search through connected documents
   4. **Content Analysis**: Considers document length and quality
 
-### 📊 Graph Analytics
+### Graph Analytics
 - Provides graph statistics (nodes, edges, density, connectivity)
 - Supports graph algorithms for advanced analysis
 - No dependency on vector embeddings (optional)

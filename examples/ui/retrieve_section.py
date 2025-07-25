@@ -3,7 +3,7 @@ import requests
 from utils import API_BASE_URL
 
 def retrieve_section(selected_config):
-    st.header("🔎 Retrieve Endpoints")
+    st.header("Retrieve Endpoints")
     st.info(f"Current Configuration: {selected_config if selected_config else 'None selected'}")
     tabs = st.tabs([
         "Retrieve",

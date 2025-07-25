@@ -126,21 +126,21 @@ def create_sample_documents():
 async def demonstrate_graph_store():
     """Demonstrate the NetworkX graph store functionality."""
     
-    print("🚀 NetworkX Graph Store POC")
+    print("NetworkX Graph Store POC")
     print("=" * 50)
     
     # Initialize RAG service
     rag_service = RAGService()
     
     # Create NetworkX configuration
-    print("\n📝 Creating NetworkX configuration...")
+    print("\nCreating NetworkX configuration...")
     # config = await create_networkx_configuration()
     config = rag_service.get_configuration("networkx_poc")
     rag_service.set_configuration("networkx_poc", config)
-    print("✅ Configuration created successfully!")
+    print("Configuration created successfully!")
     
     # Upload sample documents
-    print("\n📚 Uploading sample documents...")
+    print("\nUploading sample documents...")
     documents = create_sample_documents()
     
     for i, doc in enumerate(documents, 1):
@@ -219,18 +219,18 @@ async def demonstrate_graph_store():
             
         except Exception as e:
             print(f"❌ Generation error: {str(e)}")
-            print("💡 Tip: Set GROQ_API_KEY environment variable for generation")
+            print("Tip: Set GROQ_API_KEY environment variable for generation")
     else:
-        print("⚠️  Skipping generation (no API key provided)")
-        print("💡 Tip: Set GROQ_API_KEY environment variable for generation")
+        print("Skipping generation (no API key provided)")
+        print("Tip: Set GROQ_API_KEY environment variable for generation")
     
-    print("\n🎉 NetworkX Graph Store POC completed!")
-    print("\n📈 Key Benefits of Graph Store:")
-    print("   • Captures semantic relationships between documents")
-    print("   • Enables discovery through graph traversal")
-    print("   • Provides interpretable similarity scoring")
-    print("   • Supports complex queries through graph algorithms")
-    print("   • No dependency on vector embeddings")
+    print("\nNetworkX Graph Store POC completed!")
+    print("\nKey Benefits of Graph Store:")
+    print("   - Captures semantic relationships between documents")
+    print("   - Enables discovery through graph traversal")
+    print("   - Provides interpretable similarity scoring")
+    print("   - Supports complex queries through graph algorithms")
+    print("   - No dependency on vector embeddings")
 
 
 if __name__ == "__main__":

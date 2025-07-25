@@ -18,7 +18,7 @@ from langchain.docstore.document import Document as LangchainDocument
 def test_networkx_basic_functionality():
     """Test basic NetworkX graph store functionality."""
     
-    print("🧪 Testing NetworkX Graph Store Integration")
+    print("Testing NetworkX Graph Store Integration")
     print("=" * 50)
     
     # Create a test configuration
@@ -29,16 +29,16 @@ def test_networkx_basic_functionality():
     }
     
     # Initialize the graph store
-    print("\n1️⃣ Initializing NetworkX Graph Store...")
+    print("\n1. Initializing NetworkX Graph Store...")
     try:
         graph_store = NetworkXGraphStore(config)
-        print("✅ Graph store initialized successfully!")
+        print("Graph store initialized successfully!")
     except Exception as e:
-        print(f"❌ Failed to initialize graph store: {str(e)}")
+        print(f"Failed to initialize graph store: {str(e)}")
         return False
     
     # Create test documents
-    print("\n2️⃣ Creating test documents...")
+    print("\n2. Creating test documents...")
     test_docs = [
         LangchainDocument(
             page_content="Python is a popular programming language used for data science and machine learning. It has libraries like Pandas, NumPy, and Scikit-learn.",
@@ -53,29 +53,29 @@ def test_networkx_basic_functionality():
             metadata={"filename": "data_science.txt", "topic": "data"}
         )
     ]
-    print(f"✅ Created {len(test_docs)} test documents")
+    print(f"Created {len(test_docs)} test documents")
     
     # Add documents to the graph store
-    print("\n3️⃣ Adding documents to graph store...")
+    print("\n3. Adding documents to graph store...")
     try:
         doc_ids = graph_store.add_documents(test_docs)
-        print(f"✅ Added {len(doc_ids)} documents to graph store")
+        print(f"Added {len(doc_ids)} documents to graph store")
         print(f"   Document IDs: {doc_ids}")
     except Exception as e:
-        print(f"❌ Failed to add documents: {str(e)}")
+        print(f"Failed to add documents: {str(e)}")
         return False
     
     # Check document count
-    print("\n4️⃣ Checking document count...")
+    print("\n4. Checking document count...")
     try:
         count = graph_store.get_document_count()
-        print(f"✅ Graph store contains {count} documents")
+        print(f"Graph store contains {count} documents")
     except Exception as e:
         print(f"❌ Failed to get document count: {str(e)}")
         return False
     
     # Test similarity search
-    print("\n5️⃣ Testing similarity search...")
+    print("\n5. Testing similarity search...")
     test_queries = [
         "What is Python used for?",
         "Tell me about machine learning",
@@ -86,7 +86,7 @@ def test_networkx_basic_functionality():
         print(f"\n   Query {i}: {query}")
         try:
             results = graph_store.similarity_search(query, k=2, similarity_threshold=0.1)
-            print(f"   ✅ Found {len(results)} results")
+            print(f"   Found {len(results)} results")
             
             for j, (doc, score) in enumerate(results, 1):
                 filename = doc.metadata.get('filename', 'Unknown')
@@ -94,17 +94,17 @@ def test_networkx_basic_functionality():
                 print(f"      {j}. {filename} (topic: {topic}, score: {score:.3f})")
                 
         except Exception as e:
-            print(f"   ❌ Search failed: {str(e)}")
+            print(f"   Search failed: {str(e)}")
     
     # Test graph statistics
-    print("\n6️⃣ Getting graph statistics...")
+    print("\n6. Getting graph statistics...")
     try:
         stats = graph_store.get_graph_stats()
-        print("✅ Graph statistics:")
+        print("Graph statistics:")
         for key, value in stats.items():
             print(f"   {key}: {value}")
     except Exception as e:
-        print(f"❌ Failed to get graph stats: {str(e)}")
+        print(f"Failed to get graph stats: {str(e)}")
     
     # Test document deletion
     print("\n7️⃣ Testing document deletion...")
@@ -113,18 +113,18 @@ def test_networkx_basic_functionality():
             # Delete the first document
             graph_store.delete_documents([doc_ids[0]])
             new_count = graph_store.get_document_count()
-            print(f"✅ Deleted 1 document. New count: {new_count}")
+            print(f"Deleted 1 document. New count: {new_count}")
     except Exception as e:
-        print(f"❌ Failed to delete document: {str(e)}")
+        print(f"Failed to delete document: {str(e)}")
     
-    print("\n🎉 NetworkX integration test completed!")
+    print("\nNetworkX integration test completed!")
     return True
 
 
 def test_graph_relationships():
     """Test that the graph creates meaningful relationships between documents."""
     
-    print("\n🔗 Testing Graph Relationship Creation")
+    print("\nTesting Graph Relationship Creation")
     print("=" * 40)
     
     config = {
@@ -157,10 +157,10 @@ def test_graph_relationships():
     
     # Add documents
     doc_ids = graph_store.add_documents(related_docs)
-    print(f"✅ Added {len(doc_ids)} related documents")
+    print(f"Added {len(doc_ids)} related documents")
     
     # Test that related documents are found together
-    print("\n🔍 Testing relationship-based search:")
+    print("\nTesting relationship-based search:")
     
     queries = [
         "Tell me about Apple and Steve Jobs",
@@ -179,7 +179,7 @@ def test_graph_relationships():
     
     # Show graph statistics
     stats = graph_store.get_graph_stats()
-    print(f"\n📊 Relationship Graph Stats:")
+    print(f"\nRelationship Graph Stats:")
     print(f"   Nodes: {stats.get('num_nodes', 0)}")
     print(f"   Edges: {stats.get('num_edges', 0)}")
     print(f"   Density: {stats.get('density', 0):.3f}")
@@ -189,7 +189,7 @@ def test_graph_relationships():
 
 
 if __name__ == "__main__":
-    print("🚀 Starting NetworkX Integration Tests\n")
+    print("Starting NetworkX Integration Tests\n")
     
     try:
         # Run basic functionality test
@@ -199,15 +199,15 @@ if __name__ == "__main__":
         success2 = test_graph_relationships()
         
         if success1 and success2:
-            print("\n🎉 All tests passed! NetworkX integration is working correctly.")
+            print("\nAll tests passed! NetworkX integration is working correctly.")
         else:
-            print("\n❌ Some tests failed. Please check the error messages above.")
+            print("\nSome tests failed. Please check the error messages above.")
     except Exception as e:
-        print(f"\n❌ Test execution failed: {str(e)}")
+        print(f"\nTest execution failed: {str(e)}")
         import traceback
         traceback.print_exc()
     
-    print("\n💡 Next steps:")
+    print("\nNext steps:")
     print("   1. Install NetworkX: pip install networkx")
     print("   2. Run the full POC: python examples/networkx_graph_poc.py")
     print("   3. Configure your RAG system to use 'networkx' as vector store type")
