@@ -59,7 +59,7 @@ class QueryRequest(BaseModel):
     config: Optional[Dict[str, Any]] = Field(default=None, description="Optional partial config overrides for generation endpoint, embedding endpoint, or vector store")
     filter_after_reranking: bool = Field(default=True, description="Whether to apply score threshold filtering after reranking")
     query_expansion: Optional[QueryExpansionRequest] = Field(default=None, description="Optional query expansion configuration")
-    debug: bool = Field(default=False, description="Enable detailed debug logging to file")
+    debug: bool = Field(default=False, description="Whether to log detailed request and response payloads for debugging")
 
 class QueryResponse(BaseModel):
     query: str
@@ -125,7 +125,7 @@ class RetrieveRequest(BaseModel):
     rrf_k_constant: int = Field(default=60, ge=1)  # Constant for RRF calculation
     filter_after_reranking: bool = Field(default=True, description="Whether to apply score threshold filtering after reranking")
     query_expansion: Optional[QueryExpansionRequest] = Field(default=None, description="Optional query expansion configuration")
-    debug: bool = Field(default=False, description="Enable detailed debug logging to file")
+    debug: bool = Field(default=False, description="Whether to log detailed request and response payloads for debugging")
 
 class RetrieveResponse(BaseModel):
     query: str

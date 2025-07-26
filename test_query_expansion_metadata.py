@@ -62,7 +62,6 @@ async def test_query_expansion_metadata():
             "query": test_query,
             "configuration_name": existing_rag_config,
             "k": 3,
-            "debug": True,
             "query_expansion": {
                 "enabled": True,
                 "strategy": "multi_query",
@@ -125,7 +124,6 @@ async def test_query_expansion_metadata():
             "query": test_query,
             "configuration_name": existing_rag_config,
             "k": 3,
-            "debug": True,
             "query_expansion": {
                 "enabled": True,
                 "strategy": "fusion",
@@ -172,7 +170,6 @@ async def test_query_expansion_metadata():
             "query": test_query,
             "configuration_name": existing_rag_config,
             "k": 3,
-            "debug": True,
             "query_expansion": {
                 "enabled": True,
                 "strategy": "fusion",
