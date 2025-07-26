@@ -261,9 +261,9 @@ Please provide a comprehensive answer based on the context above."""
                 "top_p": self.config.top_p
             }
             
-            # Add top_k if specified
+            # Add top_k if specified - NVIDIA API requires it in nvext object
             if self.config.top_k is not None:
-                payload["top_k"] = self.config.top_k
+                payload["nvext"] = {"top_k": self.config.top_k}
                 
             # Prepare headers
             headers = {"Content-Type": "application/json"}

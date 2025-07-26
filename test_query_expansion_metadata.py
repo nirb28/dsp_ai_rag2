@@ -9,46 +9,50 @@ import asyncio
 import json
 import aiohttp
 from typing import Dict, Any
+import os
 
 # Configuration
-BASE_URL = "http://localhost:9000"
-GROQ_API_KEY = "your-groq-api-key-here"  # Replace with your actual API key
+BASE_URL = "http://localhost:9000/api/v1"
+existing_llm_config = "nvidia-llama3-8b"
+existing_rag_config = "batch_ml_ai_basics_test"
 
 async def test_query_expansion_metadata():
     """Test the query expansion metadata feature."""
     
+    llm_config_name = existing_llm_config if existing_llm_config else "test-groq-llama3"
     async with aiohttp.ClientSession() as session:
-        print("🧪 Testing Query Expansion Metadata Feature")
+        print("Testing Query Expansion Metadata Feature")
         print("=" * 50)
         
-        # 1. Create LLM configuration for testing
-        print("\n📋 Step 1: Creating test LLM configuration...")
-        llm_config = {
-            "name": "test-groq-llama3",
-            "provider": "groq",
-            "model": "llama3-8b-8192",
-            "endpoint": "https://api.groq.com/openai/v1/chat/completions",
-            "api_key": GROQ_API_KEY,
-            "system_prompt": "You are a helpful assistant that generates query variations for information retrieval.",
-            "temperature": 0.7,
-            "max_tokens": 512,
-            "top_p": 0.9,
-            "timeout": 30
-        }
-        
-        try:
-            async with session.post(f"{BASE_URL}/llm-configs", json=llm_config) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    print(f"✅ Created LLM configuration: {result['name']}")
-                else:
-                    error = await response.text()
-                    print(f"❌ Failed to create LLM configuration: {error}")
-                    return
-        except Exception as e:
-            print(f"❌ Error creating LLM configuration: {str(e)}")
-            return
-        
+        if existing_llm_config:
+            print(f"\nℹ️ Using existing LLM configuration: {existing_llm_config}")
+        else:
+            # 1. Create LLM configuration for testing
+            print("\nCreating test LLM configuration...")
+            llm_config = {
+                "name": llm_config_name,
+                "provider": "groq",
+                "model": "llama3-8b-8192",
+                "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+                "api_key": GROQ_API_KEY,
+                "system_prompt": "You are a helpful assistant that generates query variations for information retrieval.",
+                "temperature": 0.7,
+                "max_tokens": 512,
+                "top_p": 0.9,
+                "timeout": 30
+            }
+            try:
+                async with session.post(f"{BASE_URL}/llm-configs", json=llm_config) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        print(f"✅ Created LLM configuration: {result['name']}")
+                    else:
+                        error = await response.text()
+                        print(f"❌ Failed to create LLM configuration: {error}")
+                        return
+            except Exception as e:
+                print(f"❌ Error creating LLM configuration: {str(e)}")
+                return
         # 2. Test query with metadata enabled
         print("\n🔍 Step 2: Testing query with metadata enabled...")
         
@@ -56,12 +60,13 @@ async def test_query_expansion_metadata():
         
         query_payload = {
             "query": test_query,
-            "configuration_name": "default",
+            "configuration_name": existing_rag_config,
             "k": 3,
+            "debug": True,
             "query_expansion": {
                 "enabled": True,
                 "strategy": "multi_query",
-                "llm_config_name": "test-groq-llama3",
+                "llm_config_name": llm_config_name,
                 "num_queries": 4,
                 "include_metadata": True
             }
@@ -118,12 +123,13 @@ async def test_query_expansion_metadata():
         
         retrieve_payload = {
             "query": test_query,
-            "configuration_name": "default",
+            "configuration_name": existing_rag_config,
             "k": 3,
+            "debug": True,
             "query_expansion": {
                 "enabled": True,
                 "strategy": "fusion",
-                "llm_config_name": "test-groq-llama3",
+                "llm_config_name": llm_config_name,
                 "num_queries": 3,
                 "include_metadata": True
             }
@@ -164,12 +170,13 @@ async def test_query_expansion_metadata():
         
         query_payload_no_metadata = {
             "query": test_query,
-            "configuration_name": "default",
+            "configuration_name": existing_rag_config,
             "k": 3,
+            "debug": True,
             "query_expansion": {
                 "enabled": True,
                 "strategy": "fusion",
-                "llm_config_name": "test-groq-llama3",
+                "llm_config_name": llm_config_name,
                 "num_queries": 3,
                 "include_metadata": False  # Explicitly disabled
             }

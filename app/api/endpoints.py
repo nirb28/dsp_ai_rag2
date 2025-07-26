@@ -26,6 +26,7 @@ from app.models import (
 from app.config import RAGConfig, LLMConfig, LLMProvider, settings
 from app.services.rag_service import RAGService
 from app.services.vector_store import VectorStoreManager, FAISSVectorStore
+from app.services.debug_logger import debug_logger
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +221,8 @@ async def query_documents(request: QueryRequest):
     
     Uses reranking if configured for the configuration.
     """
+    start_time = time.time()
+    
     try:
         # Get original configuration
         config = rag_service.get_configuration(request.configuration_name)
@@ -248,32 +251,12 @@ async def query_documents(request: QueryRequest):
                 if system_prompt is not None:
                     request.config['system_prompt'] = system_prompt
         
-        # Check if reranking and context injection are enabled for this configuration
-        reranking_enabled = hasattr(config, 'reranking') and config.reranking and config.reranking.enabled
-        context_enabled = hasattr(config, 'context_injection') and config.context_injection and config.context_injection.enabled
-        
-        if context_enabled:
-            logger.info(f"Context injection enabled for configuration '{request.configuration_name}'")
-        if reranking_enabled:
-            logger.info(f"Reranking enabled for configuration '{request.configuration_name}' using model: {config.reranking.model}")
-        
-        # Convert context items to list of dictionaries if provided
-        context_items = None
-        if request.context_items:
-            context_items = [item.dict() for item in request.context_items]
-            logger.info(f"Using {len(context_items)} context items for query")
-        
-        # Prepare query expansion if provided
+        # Convert query expansion to dict if present
         query_expansion_dict = None
         if request.query_expansion:
-            query_expansion_dict = {
-                'enabled': request.query_expansion.enabled,
-                'strategy': request.query_expansion.strategy,
-                'llm_config_name': request.query_expansion.llm_config_name,
-                'num_queries': request.query_expansion.num_queries,
-                'include_metadata': request.query_expansion.include_metadata
-            }
+            query_expansion_dict = request.query_expansion.dict()
         
+        # Call the RAG service
         response = await rag_service.query(
             query=request.query,
             configuration_name=request.configuration_name,
@@ -291,10 +274,130 @@ async def query_documents(request: QueryRequest):
             for source in response.sources:
                 source['metadata'] = {}
         
+        # Debug logging if enabled
+        if request.debug:
+            processing_time = time.time() - start_time
+            debug_filename = debug_logger.log_request_response(
+                category="query",
+                request_data=request.dict(),
+                response_data=response.dict(),
+                processing_time=processing_time,
+                additional_info={
+                    "configuration_used": config.dict() if temp_config else None,
+                    "system_prompt_override": system_prompt,
+                    "query_expansion_enabled": query_expansion_dict is not None
+                }
+            )
+            logger.info(f"Debug log written to: {debug_filename}")
+        
         return response
         
     except Exception as e:
         logger.error(f"Error processing query: {str(e)}")
+        
+        # Debug logging for errors if enabled
+        if request.debug:
+            processing_time = time.time() - start_time
+            debug_filename = debug_logger.log_request_response(
+                category="query_error",
+                request_data=request.dict(),
+                response_data={"error": str(e), "error_type": type(e).__name__},
+                processing_time=processing_time,
+                additional_info={
+                    "error_occurred": True,
+                    "error_message": str(e)
+                }
+            )
+            logger.info(f"Error debug log written to: {debug_filename}")
+        
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/retrieve", response_model=RetrieveResponse)
+async def retrieve_documents(request: RetrieveRequest):
+    """Retrieve relevant documents from a configuration without generating a response.
+    
+    This endpoint allows direct access to the vector retrieval functionality without LLM generation.
+    It supports retrieving from multiple vector stores and combining results using fusion methods.
+    """
+    start_time = time.time()
+    
+    try:
+        # Convert query expansion to dict if present
+        query_expansion_dict = None
+        if request.query_expansion:
+            query_expansion_dict = request.query_expansion.dict()
+        
+        # Call the RAG service retrieve method
+        documents, metadata = await rag_service.retrieve(
+            query=request.query,
+            configuration_name=request.configuration_name,
+            configuration_names=request.configuration_names,
+            k=request.k,
+            similarity_threshold=request.similarity_threshold,
+            use_reranking=request.use_reranking,
+            include_vectors=request.include_vectors,
+            config_override=request.config,
+            fusion_method=request.fusion_method,
+            rrf_k_constant=request.rrf_k_constant,
+            query_expansion=query_expansion_dict,
+            filter_after_reranking=request.filter_after_reranking
+        )
+        
+        # Filter metadata if requested
+        if not request.include_metadata:
+            for doc in documents:
+                doc['metadata'] = {}
+        
+        # Create response
+        processing_time = time.time() - start_time
+        response = RetrieveResponse(
+            query=request.query,
+            documents=documents,
+            processing_time=processing_time,
+            configuration_name=request.configuration_name,
+            configuration_names=request.configuration_names,
+            total_found=len(documents),
+            fusion_method=request.fusion_method,
+            query_expansion_metadata=metadata
+        )
+        
+        # Debug logging if enabled
+        if request.debug:
+            debug_filename = debug_logger.log_request_response(
+                category="retrieve",
+                request_data=request.dict(),
+                response_data=response.dict(),
+                processing_time=processing_time,
+                additional_info={
+                    "config_override_used": request.config is not None,
+                    "fusion_method": request.fusion_method,
+                    "query_expansion_enabled": query_expansion_dict is not None,
+                    "multi_config_retrieval": request.configuration_names is not None
+                }
+            )
+            logger.info(f"Debug log written to: {debug_filename}")
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error processing retrieve request: {str(e)}")
+        
+        # Debug logging for errors if enabled
+        if request.debug:
+            processing_time = time.time() - start_time
+            debug_filename = debug_logger.log_request_response(
+                category="retrieve_error",
+                request_data=request.dict(),
+                response_data={"error": str(e), "error_type": type(e).__name__},
+                processing_time=processing_time,
+                additional_info={
+                    "error_occurred": True,
+                    "error_message": str(e)
+                }
+            )
+            logger.info(f"Error debug log written to: {debug_filename}")
+        
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 

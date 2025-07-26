@@ -231,6 +231,10 @@ Example format: ["related query 1", "related query 2", "related query 3"]"""
             "top_p": llm_config.top_p
         }
         
+        # Add top_k if specified - NVIDIA API requires it in nvext object
+        if llm_config.top_k is not None:
+            payload["nvext"] = {"top_k": llm_config.top_k}
+        
         timeout = aiohttp.ClientTimeout(total=llm_config.timeout)
         
         async with session.post(llm_config.endpoint, json=payload, headers=headers, timeout=timeout) as response:
