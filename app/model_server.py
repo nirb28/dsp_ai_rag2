@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple
 from pathlib import Path
 import dotenv
 import json
@@ -9,6 +9,7 @@ import tempfile
 import time
 
 import uvicorn
+import numpy as np
 from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 # Cache for loaded models
-loaded_models: Dict[str, Union[SentenceTransformer, CrossEncoder]] = {}
+loaded_models: Dict[str, Union[SentenceTransformer, CrossEncoder, Any]] = {}
 
 # Temp directory for model copies
 TEMP_MODEL_DIR = Path(tempfile.gettempdir()) / "rag_models"
@@ -70,6 +71,29 @@ class RerankerRequest(BaseModel):
 
 class RerankerResponse(BaseModel):
     scores: List[float]
+    model: str
+
+
+class ClassificationRequest(BaseModel):
+    texts: List[str]
+    labels: List[str]
+    model_name: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    include_results: bool = True
+
+
+class ClassificationResult(BaseModel):
+    label: str
+    score: float
+
+
+class ClassificationTextResult(BaseModel):
+    results: Optional[List[ClassificationResult]] = None
+    top_label: str
+    top_score: float
+
+
+class ClassificationResponse(BaseModel):
+    text_results: List[ClassificationTextResult]
     model: str
 
 
@@ -137,6 +161,11 @@ def get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
 def get_reranker_model(model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
     """Load or retrieve reranker model from cache."""
     model_key = f"reranker_{model_name}"
+    
+    # Note: classification can use the same models as reranking
+    # so we can use the same function for both
+    if model_key in loaded_models:
+        return loaded_models[model_key]
     
     if model_key not in loaded_models:
         logger.info(f"Loading reranker model: {model_name}")
@@ -236,6 +265,60 @@ async def rerank_documents(request: RerankerRequest):
     except Exception as e:
         logger.error(f"Error reranking documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Reranking failed: {str(e)}")
+
+
+@app.post("/classify", response_model=ClassificationResponse)
+async def classify_text(request: ClassificationRequest):
+    """Classify texts into one of the provided labels.
+    
+    Uses a cross-encoder to score each (label, text) pair and returns sorted results.
+    Processes multiple texts and returns results for each text.
+    """
+    try:
+        model = get_reranker_model(request.model_name)
+        text_results = []
+        
+        # Process each text separately
+        for text in request.texts:
+            # Create label-text pairs for the current text
+            pairs = [(label, text) for label in request.labels]
+            
+            # Get scores from model for current text
+            scores = model.predict(pairs).tolist()
+            
+            # Sort label-score pairs by score (highest first)
+            sorted_results = sorted(zip(request.labels, scores), key=lambda x: x[1], reverse=True)
+            
+            # Create results list if needed
+            results = []
+            if request.include_results:
+                results = [
+                    {"label": label, "score": score}
+                    for label, score in sorted_results
+                ]
+            
+            # Get the top label and score
+            top_label, top_score = sorted_results[0] if sorted_results else ("", 0.0)
+            
+            # Add results for this text
+            result_dict = {
+                "top_label": top_label,
+                "top_score": top_score
+            }
+            
+            # Only include detailed results if requested
+            if request.include_results:
+                result_dict["results"] = results
+                
+            text_results.append(result_dict)
+        
+        return {
+            "text_results": text_results,
+            "model": request.model_name
+        }
+    except Exception as e:
+        logger.error(f"Error classifying text: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
 
 
 @app.get("/models")
