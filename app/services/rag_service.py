@@ -696,32 +696,36 @@ class RAGService:
 
     def _merge_query_results(self, all_results: List[List], k: int) -> List:
         """Merge results from multiple queries, removing duplicates and ranking by score."""
+        import logging
+        logger = logging.getLogger(__name__)
         # Flatten all results
         merged = []
         seen_content = set()
-        
+        pre_merge_count = sum(len(r) for r in all_results)
+        print(all_results)
+        logger.debug(f"[Merge] Pre-merge results: {pre_merge_count} total documents")
         for query_results in all_results:
             for item in query_results:
                 if len(item) == 3:  # (doc, score, query)
                     doc, score, source_query = item
                     content_hash = hash(doc.page_content)
-                    
                     if content_hash not in seen_content:
                         seen_content.add(content_hash)
                         merged.append((doc, score, source_query))
                 else:  # (doc, score)
                     doc, score = item
                     content_hash = hash(doc.page_content)
-                    
                     if content_hash not in seen_content:
                         seen_content.add(content_hash)
                         merged.append((doc, score))
-        
+        logger.debug(f"[Merge] Deduplicated {pre_merge_count} results down to {len(merged)} unique documents.")
         # Sort by similarity score (descending)
         merged.sort(key=lambda x: x[1], reverse=True)
-        
+        logger.debug(f"[Merge] Post-sort results: {len(merged)} documents")
         # Return top k results
+        logger.debug(f"[Merge] Returning top {k} results after sorting.")
         return merged[:k]
+
     
     async def retrieve(
         self,
@@ -791,7 +795,7 @@ class RAGService:
                     k=k,
                     similarity_threshold=similarity_threshold
                 )
-                
+                logger.debug(f"[Retrieve] Retrieved {len(results)} results for query '{q}'. Top 3 scores: {[r[1] for r in results[:3]] if results else []}")
                 # Add query source information to results
                 query_results = [(doc, score, q) for doc, score in results]
                 all_results.append(query_results)
@@ -802,9 +806,12 @@ class RAGService:
             
             # Merge and deduplicate results if multiple queries were used
             if len(queries_to_search) > 1:
+                logger.debug(f"[Query] Merging and deduplicating results from {len(queries_to_search)} queries. Raw total: {sum(len(r) for r in all_results)}.")
                 merged_results = self._merge_query_results(all_results, k)
+                logger.debug(f"[Query] Results after merging/deduplication: {len(merged_results)}")
             else:
                 merged_results = all_results[0] if all_results else []
+                logger.debug(f"[Query] Single-query, skipping merge. Results: {len(merged_results)}")
             
             # Prepare response documents
             documents = []

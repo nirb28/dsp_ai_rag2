@@ -250,8 +250,8 @@ def main():
     #test_query_debug_logging(configuration_name=args.config)
     
     # Run retrieve endpoint test
-    #test_retrieve_debug_logging(configuration_name=args.config, use_query_expansion=args.query_expansion)
-    args.multi_config = True
+    test_retrieve_debug_logging(configuration_name=args.config, use_query_expansion=args.query_expansion)
+    #args.multi_config = True
     # Run multi-config retrieve test if requested
     if args.multi_config:
         # Use two test configurations - adjust as needed based on your available configs
