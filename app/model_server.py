@@ -12,8 +12,16 @@ from collections import defaultdict
 import uvicorn
 import numpy as np
 from fastapi import FastAPI, HTTPException, Depends, Query
+from app.api.lora_endpoints import router as lora_router
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+
+# Import models from dedicated models file
+from app.models.model_server_models import (
+    EmbeddingRequest, EmbeddingResponse,
+    RerankerRequest, RerankerResponse,
+    ClassificationRequest, ClassificationResult, ClassificationTextResult, ClassificationResponse,
+    ClassificationEvalRequest, ClassificationMetrics, ClassificationEvalResponse
+)
 
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from app.config import settings
@@ -31,6 +39,9 @@ app = FastAPI(
     description="API for serving ML models that aren't compatible with vLLM",
     version="1.0.0"
 )
+
+# Include LoRA router
+app.include_router(lora_router, prefix="/api/v1/lora", tags=["LoRA Fine-Tuning"])
 
 # Add CORS middleware
 app.add_middleware(
@@ -52,72 +63,6 @@ if not TEMP_MODEL_DIR.exists():
 # Model base directory - load directly from .env if available, otherwise use default
 MODEL_DIR = Path(os.getenv('LOCAL_MODELS_PATH', './models'))
 
-
-class EmbeddingRequest(BaseModel):
-    texts: List[str]
-    model_name: Optional[str] = "all-MiniLM-L6-v2"
-
-
-class EmbeddingResponse(BaseModel):
-    embeddings: List[List[float]]
-    model: str
-    dimensions: int
-
-
-class RerankerRequest(BaseModel):
-    query: str
-    documents: List[str]
-    model_name: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-
-
-class RerankerResponse(BaseModel):
-    scores: List[float]
-    model: str
-
-
-class ClassificationRequest(BaseModel):
-    texts: List[str]
-    labels: List[str]
-    model_name: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    include_results: bool = True
-
-
-class ClassificationResult(BaseModel):
-    label: str
-    score: float
-
-
-class ClassificationTextResult(BaseModel):
-    results: Optional[List[ClassificationResult]] = None
-    top_label: str
-    top_score: float
-
-
-class ClassificationResponse(BaseModel):
-    text_results: List[ClassificationTextResult]
-    model: str
-
-
-class ClassificationEvalRequest(BaseModel):
-    texts: List[str]
-    labels: List[str]
-    ground_truths: List[str]
-    model_name: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-
-
-class ClassificationMetrics(BaseModel):
-    accuracy: float
-    precision: Dict[str, float]
-    recall: Dict[str, float]
-    f1_score: Dict[str, float]
-    label_count: Dict[str, int]
-    confusion_matrix: Dict[str, Dict[str, int]]
-
-
-class ClassificationEvalResponse(BaseModel):
-    metrics: ClassificationMetrics
-    predictions: List[Dict[str, Any]]
-    model: str
 
 
 def get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
@@ -496,6 +441,21 @@ async def list_models():
         logger.error(f"Error listing models: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list models: {str(e)}")
 
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information."""
+    return {
+        "message": "Model Serving API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/v1/health",
+        "lora_fine_tuning": {
+            "jobs": "/api/v1/lora/jobs",
+            "adapters": "/api/v1/lora/adapters",
+            "generate": "/api/v1/lora/generate"
+        }
+    }
 
 if __name__ == "__main__":
     # Log model directory information
