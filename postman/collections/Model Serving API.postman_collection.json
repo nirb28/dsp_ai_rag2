@@ -1,0 +1,606 @@
+{
+	"info": {
+		"_postman_id": "490dd5d6-5deb-40e1-bcb3-062842cce993",
+		"name": "Model Serving API",
+		"description": "API for serving ML models that aren't compatible with vLLM",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "260790",
+		"_collection_link": "https://crimson-flare-101603.postman.co/workspace/My-Workspace~6ebdbd9c-69f2-4617-8c2e-add8e28eb928/collection/260790-490dd5d6-5deb-40e1-bcb3-062842cce993?action=share&source=collection_link&creator=260790"
+	},
+	"item": [
+		{
+			"name": "health",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Health check endpoint."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/health",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"health"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "embeddings",
+			"item": [
+				{
+					"name": "Generate Embeddings",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"texts\": [\n    \"sit minim proi\",\n    \"laboris reprehenderit ut enim\"\n  ],\n  \"model_name\": \"incididunt ut ad tempor\"\n}",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/embeddings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"embeddings"
+							]
+						},
+						"description": "Generate embeddings for the input texts."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"texts\": [\n    \"sit minim proi\",\n    \"laboris reprehenderit ut enim\"\n  ],\n  \"model_name\": \"incididunt ut ad tempor\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/embeddings",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"embeddings"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"embeddings\": [\n    [\n      99268065.63114744,\n      70618581.89015394\n    ],\n    [\n      9786591.607559592,\n      -24350655.025501937\n    ]\n  ],\n  \"model\": \"laboris ipsum laborum dolor\",\n  \"dimensions\": 52749113\n}"
+						},
+						{
+							"name": "Validation Error",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"texts\": [\n    \"sit minim proi\",\n    \"laboris reprehenderit ut enim\"\n  ],\n  \"model_name\": \"incididunt ut ad tempor\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/embeddings",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"embeddings"
+									]
+								}
+							},
+							"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"Excepteur laborum\",\n        \"aliqua qui sint\"\n      ],\n      \"msg\": \"anim quis ut\",\n      \"type\": \"anim ipsum dolor exercitation\"\n    },\n    {\n      \"loc\": [\n        \"proident nostrud laborum veniam\",\n        \"cillum\"\n      ],\n      \"msg\": \"sed aliquip adipisicing dolor\",\n      \"type\": \"irure laboris in ut\"\n    }\n  ]\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "rerank",
+			"item": [
+				{
+					"name": "Rerank Documents",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"query\": \"in\",\n  \"documents\": [\n    \"tempor amet nostrud mollit\",\n    \"mollit voluptate dolor\"\n  ],\n  \"model_name\": \"ut ex\"\n}",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/rerank",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"rerank"
+							]
+						},
+						"description": "Rerank documents based on relevance to the query."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"query\": \"in\",\n  \"documents\": [\n    \"tempor amet nostrud mollit\",\n    \"mollit voluptate dolor\"\n  ],\n  \"model_name\": \"ut ex\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/rerank",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"rerank"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"scores\": [\n    28449532.521518067,\n    -33687648.08282245\n  ],\n  \"model\": \"dolore consequat\"\n}"
+						},
+						{
+							"name": "Validation Error",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"query\": \"in\",\n  \"documents\": [\n    \"tempor amet nostrud mollit\",\n    \"mollit voluptate dolor\"\n  ],\n  \"model_name\": \"ut ex\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/rerank",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"rerank"
+									]
+								}
+							},
+							"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"Excepteur laborum\",\n        \"aliqua qui sint\"\n      ],\n      \"msg\": \"anim quis ut\",\n      \"type\": \"anim ipsum dolor exercitation\"\n    },\n    {\n      \"loc\": [\n        \"proident nostrud laborum veniam\",\n        \"cillum\"\n      ],\n      \"msg\": \"sed aliquip adipisicing dolor\",\n      \"type\": \"irure laboris in ut\"\n    }\n  ]\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "classify",
+			"item": [
+				{
+					"name": "Classify Text",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"texts\": [\n        \"The team won the championship after a thrilling game.\",\n        \"New legislation was passed regarding tax reforms.\",\n        \"The company released their latest smartphone with advanced AI features.\",\n        \"The movie received critical acclaim for its stunning visual effects.\"\n    ],\n    \"labels\": [\"sports\", \"politics\", \"technology\", \"entertainment\", \"business\"],\n    \"model_name\": \"cross-encoder/ms-marco-MiniLM-L6-v2\"\n}",
+							"options": {
+								"raw": {
+									"headerFamily": "json",
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{model-server-baseUrl}}/classify",
+							"host": [
+								"{{model-server-baseUrl}}"
+							],
+							"path": [
+								"classify"
+							]
+						},
+						"description": "Classify text into one of the provided labels.\n\nUses a cross-encoder to score each (label, text) pair and returns sorted results."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"text\": \"consequat cillum proident tem\",\n  \"labels\": [\n    \"sit occaecat\",\n    \"velit occaecat ullamco laborum eu\"\n  ],\n  \"model_name\": \"labore veniam laborum\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/classify",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"classify"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"results\": [\n    {\n      \"label\": \"magna minim aliquip\",\n      \"score\": 72538859.71174347\n    },\n    {\n      \"label\": \"sit\",\n      \"score\": 80476209.46021587\n    }\n  ],\n  \"model\": \"ut\"\n}"
+						},
+						{
+							"name": "Validation Error",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"text\": \"consequat cillum proident tem\",\n  \"labels\": [\n    \"sit occaecat\",\n    \"velit occaecat ullamco laborum eu\"\n  ],\n  \"model_name\": \"labore veniam laborum\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/classify",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"classify"
+									]
+								}
+							},
+							"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"Excepteur laborum\",\n        \"aliqua qui sint\"\n      ],\n      \"msg\": \"anim quis ut\",\n      \"type\": \"anim ipsum dolor exercitation\"\n    },\n    {\n      \"loc\": [\n        \"proident nostrud laborum veniam\",\n        \"cillum\"\n      ],\n      \"msg\": \"sed aliquip adipisicing dolor\",\n      \"type\": \"irure laboris in ut\"\n    }\n  ]\n}"
+						},
+						{
+							"name": "sentiment analysis",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"texts\": [\n    \"I absolutely loved the movie, it was fantastic!\",\n    \"The service was terrible and the food was cold.\",\n    \"The weather is expected to be partly cloudy today.\",\n    \"The new update improved performance but introduced several bugs.\",\n    \"The product exceeded all my expectations. Best purchase ever!\",\n    \"It's okay, works as advertised but nothing special.\",\n    \"Completely disappointed with the quality, would not recommend.\",\n    \"Not bad, but there's room for improvement.\"\n    ],\n    \"labels\": [    \n    \"very positive\", \n    \"slightly positive\",\n    \"neutral\",\n    \"slightly negative\",\n    \"very negative\"\n    ],\n    \"include_results\": false,\n    \"model_name\": \"cross-encoder/ms-marco-MiniLM-L6-v2\"\n}",
+									"options": {
+										"raw": {
+											"headerFamily": "json",
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{model-server-baseUrl}}/classify",
+									"host": [
+										"{{model-server-baseUrl}}"
+									],
+									"path": [
+										"classify"
+									]
+								}
+							},
+							"_postman_previewlanguage": null,
+							"header": null,
+							"cookie": [],
+							"body": null
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "models",
+			"item": [
+				{
+					"name": "List Models",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/models",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"models"
+							]
+						},
+						"description": "List available models in the models directory."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/models",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"models"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{}"
+						}
+					]
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "model-server-baseUrl",
+			"value": "/"
+		}
+	]
+}

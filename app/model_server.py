@@ -7,6 +7,7 @@ import json
 import shutil
 import tempfile
 import time
+from collections import defaultdict
 
 import uvicorn
 import numpy as np
@@ -94,6 +95,28 @@ class ClassificationTextResult(BaseModel):
 
 class ClassificationResponse(BaseModel):
     text_results: List[ClassificationTextResult]
+    model: str
+
+
+class ClassificationEvalRequest(BaseModel):
+    texts: List[str]
+    labels: List[str]
+    ground_truths: List[str]
+    model_name: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+
+class ClassificationMetrics(BaseModel):
+    accuracy: float
+    precision: Dict[str, float]
+    recall: Dict[str, float]
+    f1_score: Dict[str, float]
+    label_count: Dict[str, int]
+    confusion_matrix: Dict[str, Dict[str, int]]
+
+
+class ClassificationEvalResponse(BaseModel):
+    metrics: ClassificationMetrics
+    predictions: List[Dict[str, Any]]
     model: str
 
 
@@ -319,6 +342,115 @@ async def classify_text(request: ClassificationRequest):
     except Exception as e:
         logger.error(f"Error classifying text: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
+
+
+@app.post("/classify/eval", response_model=ClassificationEvalResponse)
+async def evaluate_classification(request: ClassificationEvalRequest):
+    """Evaluate classification performance by comparing predictions against ground truth labels.
+    
+    Uses a cross-encoder to classify texts and computes evaluation metrics including:
+    accuracy, precision, recall, F1 score, and confusion matrix.
+    """
+    try:
+        if len(request.texts) != len(request.ground_truths):
+            raise HTTPException(status_code=400, 
+                                detail="Number of texts must match number of ground truth labels")
+        
+        # Validate ground truths are in provided labels
+        invalid_labels = [gt for gt in request.ground_truths if gt not in request.labels]
+        if invalid_labels:
+            raise HTTPException(status_code=400,
+                               detail=f"Ground truth labels {invalid_labels} not found in provided labels")
+        
+        model = get_reranker_model(request.model_name)
+        predictions = []
+        confusion_matrix = defaultdict(lambda: defaultdict(int))
+        
+        # Process each text and evaluate against ground truth
+        for text, ground_truth in zip(request.texts, request.ground_truths):
+            # Create label-text pairs for the current text
+            pairs = [(label, text) for label in request.labels]
+            
+            # Get scores from model for current text
+            scores = model.predict(pairs).tolist()
+            
+            # Sort label-score pairs by score (highest first)
+            sorted_results = sorted(zip(request.labels, scores), key=lambda x: x[1], reverse=True)
+            predicted_label, predicted_score = sorted_results[0] if sorted_results else ("", 0.0)
+            
+            # Update confusion matrix
+            confusion_matrix[ground_truth][predicted_label] += 1
+            
+            # Save prediction info
+            predictions.append({
+                "text": text,
+                "ground_truth": ground_truth,
+                "predicted": predicted_label,
+                "score": predicted_score,
+                "correct": ground_truth == predicted_label
+            })
+        
+        # Calculate metrics
+        label_counts = {label: sum(gt == label for gt in request.ground_truths) for label in request.labels}
+        
+        # Convert defaultdict to regular dict for JSON serialization
+        confusion_dict = {k: dict(v) for k, v in confusion_matrix.items()}
+        
+        # Ensure all cells in confusion matrix are represented
+        for true_label in request.labels:
+            if true_label not in confusion_dict:
+                confusion_dict[true_label] = {}
+            for pred_label in request.labels:
+                if pred_label not in confusion_dict[true_label]:
+                    confusion_dict[true_label][pred_label] = 0
+        
+        # Calculate accuracy
+        correct = sum(1 for p in predictions if p["correct"])
+        accuracy = correct / len(predictions) if predictions else 0
+        
+        # Calculate per-class metrics
+        precision = {}
+        recall = {}
+        f1_score = {}
+        
+        for label in request.labels:
+            # True positives: cases where we correctly predicted this label
+            tp = sum(1 for p in predictions if p["predicted"] == label and p["ground_truth"] == label)
+            
+            # False positives: cases where we predicted this label but it was wrong
+            fp = sum(1 for p in predictions if p["predicted"] == label and p["ground_truth"] != label)
+            
+            # False negatives: cases where we didn't predict this label but should have
+            fn = sum(1 for p in predictions if p["predicted"] != label and p["ground_truth"] == label)
+            
+            # Calculate precision, recall, and F1 (with handling for division by zero)
+            prec = tp / (tp + fp) if (tp + fp) > 0 else 0
+            rec = tp / (tp + fn) if (tp + fn) > 0 else 0
+            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0
+            
+            precision[label] = prec
+            recall[label] = rec
+            f1_score[label] = f1
+        
+        metrics = {
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1_score,
+            "label_count": label_counts,
+            "confusion_matrix": confusion_dict
+        }
+        
+        return {
+            "metrics": metrics,
+            "predictions": predictions,
+            "model": request.model_name
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error evaluating classification: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Classification evaluation failed: {str(e)}")
 
 
 @app.get("/models")
