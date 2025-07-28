@@ -126,7 +126,7 @@ def get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
     return loaded_models[model_key]
 
 
-def get_reranker_model(model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
+def get_reranker_model(model_name: str = "cross-encoder/ms-marco-MiniLM-L6-v2"):
     """Load or retrieve reranker model from cache."""
     model_key = f"reranker_{model_name}"
     
@@ -406,21 +406,30 @@ async def list_models():
         
         # Check local models directory
         if MODEL_DIR.exists():
-            # Look for directories that contain model files
-            for root, dirs, files in os.walk(MODEL_DIR):
-                # Skip the base models directory itself
-                if root == str(MODEL_DIR):
+            # First level directories (e.g., sentence-transformers)
+            for first_level_dir in MODEL_DIR.iterdir():
+                if not first_level_dir.is_dir():
                     continue
-                
-                # Check if this directory has model files
-                model_files = [f for f in files if f.endswith(('.bin', '.pt', '.onnx', '.model')) or f == 'config.json']
-                if model_files:
-                    # Get path relative to MODEL_DIR
-                    rel_path = Path(root).relative_to(MODEL_DIR)
                     
-                    # Convert Windows path separators to forward slashes for consistency with HF model names
-                    model_path = str(rel_path).replace(os.sep, '/')
-                    available_models.append(model_path)
+                # Second level directories (e.g., all-MiniLM-L6-v2)
+                for second_level_dir in first_level_dir.iterdir():
+                    if not second_level_dir.is_dir():
+                        continue
+                        
+                    # Check if this directory has model files (directly or in subdirectories)
+                    has_model_files = False
+                    for root, _, files in os.walk(second_level_dir):
+                        model_files = [f for f in files if f.endswith(('.bin', '.pt', '.onnx', '.model')) or f == 'config.json']
+                        if model_files:
+                            has_model_files = True
+                            break
+                    
+                    if has_model_files:
+                        # Create path using first two levels only
+                        rel_path = second_level_dir.relative_to(MODEL_DIR)
+                        # Convert Windows path separators to forward slashes for consistency with HF model names
+                        model_path = str(rel_path).replace(os.sep, '/')
+                        available_models.append(model_path)
         
         # Format the loaded models by removing the prefix
         formatted_loaded_models = []
