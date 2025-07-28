@@ -6,7 +6,7 @@ import json
 import os
 
 from app.config import RAGConfig, LLMConfig, LLMProvider, settings, process_env_vars_in_model
-from app.models import Document, DocumentStatus, QueryResponse
+from app.model_schemas import Document, DocumentStatus, QueryResponse
 from app.services.document_processor import DocumentProcessor
 from app.services.embedding_service import EmbeddingService
 from app.services.vector_store import VectorStoreManager, FAISSVectorStore

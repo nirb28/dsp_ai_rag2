@@ -10,7 +10,7 @@ import re
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from app.models import QueryResponse
+from app.model_schemas import QueryResponse
 from app.services.rag_service import RAGService
 from app.services.embedding_service import EmbeddingService
 

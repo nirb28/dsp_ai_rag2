@@ -81,7 +81,7 @@ def test_get_configuration(client, sample_config):
 @patch('app.services.rag_service.RAGService.upload_document')
 def test_upload_document_success(mock_upload, client, sample_text_file):
     """Test successful document upload."""
-    from app.models import Document, DocumentStatus
+    from app.model_schemas import Document, DocumentStatus
     
     # Mock the upload_document method
     mock_document = Document(
@@ -135,7 +135,7 @@ def test_upload_document_invalid_file_type(client):
 
 def test_upload_document_with_metadata(client, sample_text_file):
     """Test uploading document with metadata."""
-    from app.models import Document, DocumentStatus
+    from app.model_schemas import Document, DocumentStatus
     
     with patch('app.services.rag_service.RAGService.upload_document') as mock_upload:
         mock_document = Document(
@@ -182,7 +182,7 @@ def test_upload_document_invalid_metadata(client, sample_text_file):
 @patch('app.services.rag_service.RAGService.query')
 def test_query_documents_success(mock_query, client):
     """Test successful document query."""
-    from app.models import QueryResponse
+    from app.model_schemas import QueryResponse
     
     # Mock the query method
     mock_response = QueryResponse(
@@ -232,7 +232,7 @@ def test_query_documents_invalid_request(client):
 
 def test_query_documents_without_metadata(client):
     """Test query without including metadata."""
-    from app.models import QueryResponse
+    from app.model_schemas import QueryResponse
     
     with patch('app.services.rag_service.RAGService.query') as mock_query:
         mock_response = QueryResponse(
@@ -388,7 +388,7 @@ def test_retrieve_documents_with_config_override(mock_similarity_search, client)
 @patch('app.services.rag_service.RAGService.query')
 def test_query_documents_with_config_override(mock_query, client):
     """Test document query with config override."""
-    from app.models import QueryResponse
+    from app.model_schemas import QueryResponse
     
     # Mock the query method
     mock_response = QueryResponse(

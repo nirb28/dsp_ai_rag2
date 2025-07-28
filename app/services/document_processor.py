@@ -16,7 +16,7 @@ from docx import Document as DocxDocument
 from pptx import Presentation
 
 from app.config import ChunkingStrategy, ChunkingConfig
-from app.models import Document, DocumentStatus
+from app.model_schemas import Document, DocumentStatus
 
 logger = logging.getLogger(__name__)
 

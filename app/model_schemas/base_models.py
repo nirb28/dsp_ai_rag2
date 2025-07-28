@@ -105,7 +105,6 @@ class ConfigurationsResponse(BaseModel):
     configurations: List[ConfigurationInfo]
     total_count: int
     
-
 class ConfigurationNamesResponse(BaseModel):
     """Simple response model for configuration names only"""
     names: List[str]

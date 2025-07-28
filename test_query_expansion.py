@@ -20,7 +20,7 @@ async def test_query_expansion():
         print("📦 Testing imports...")
         from app.services.query_expansion_service import QueryExpansionService
         from app.config import LLMConfig, LLMProvider
-        from app.models import QueryExpansionRequest, LLMConfigRequest
+        from app.model_schemas import QueryExpansionRequest, LLMConfigRequest
         from app.services.rag_service import RAGService
         print("✅ All imports successful")
         

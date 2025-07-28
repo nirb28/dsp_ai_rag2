@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Path, Query
 
-from app.models.lora_models import (
+from app.model_schemas.lora_models import (
     LoRAJobRequest, LoRAJob, LoRAJobResponse, LoRAJobListResponse,
     LoRAGenerationRequest, LoRAGenerationResponse, LoRAJobStatus
 )

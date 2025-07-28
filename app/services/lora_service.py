@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import BackgroundTasks
 
 # Import models from the dedicated models file
-from app.models.lora_models import (
+from app.model_schemas.lora_models import (
     LoRAJobRequest, LoRAJob, LoRAJobStatus, LoRAJobProgress,
     LoRATrainingConfig, LoRAGenerationRequest, LoRAGenerationResponse
 )

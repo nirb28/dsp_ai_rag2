@@ -15,7 +15,7 @@ import uvicorn
 from fastapi.encoders import jsonable_encoder
 
 from app.api.endpoints import router
-from app.models import ErrorResponse
+from app.model_schemas import ErrorResponse
 
 from dotenv import load_dotenv
 import os

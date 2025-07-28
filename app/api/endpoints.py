@@ -13,7 +13,7 @@ import logging
 # Import the documentation router
 from app.api.documentation import router as documentation_router
 
-from app.models import (
+from app.model_schemas import (
     DocumentUploadResponse, QueryRequest, QueryResponse, 
     ConfigurationRequest, ConfigurationResponse, HealthResponse,
     ErrorResponse, ConfigurationsResponse, ConfigurationInfo,

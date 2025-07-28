@@ -9,7 +9,7 @@ import json
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support
 
-from app.models import Document, QueryResponse
+from app.model_schemas import Document, QueryResponse
 from app.services.rag_service import RAGService
 
 from evaluation.base import BaseEvaluator, EvaluationResult

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 class EmbeddingRequest(BaseModel):
     """Request model for embedding generation."""
-    text: List[str]
+    texts: List[str]
     model_name: Optional[str] = "all-MiniLM-L6-v2"
 
 
@@ -21,7 +21,7 @@ class EmbeddingResponse(BaseModel):
 class RerankerRequest(BaseModel):
     """Request model for reranking."""
     query: str
-    documents: List[str]
+    texts: List[str]
     model_name: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
 

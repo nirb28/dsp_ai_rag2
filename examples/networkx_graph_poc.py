@@ -25,7 +25,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from app.services.rag_service import RAGService
 from app.config import RAGConfig, VectorStoreConfig, EmbeddingConfig, GenerationConfig, RerankerConfig
-from app.models import QueryRequest, DocumentUploadRequest
+from app.model_schemas import QueryRequest, DocumentUploadRequest
 
 
 async def create_networkx_configuration():
