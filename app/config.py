@@ -76,6 +76,7 @@ class VectorStore(str, Enum):
     REDIS = "redis"
     BM25 = "bm25"  # Keyword-based search using BM25 algorithm
     NETWORKX = "networkx"  # Graph-based search using NetworkX
+    NEO4J = "neo4j"  # Graph-based search using Neo4j
 
 class EmbeddingModel(str, Enum):
     SENTENCE_TRANSFORMERS_ALL_MINILM = "sentence-transformers/all-MiniLM-L6-v2"
@@ -112,12 +113,17 @@ class ChunkingConfig(BaseModel):
 class VectorStoreConfig(BaseModel):
     type: VectorStore = VectorStore.FAISS
     index_path: str = Field(default="./storage/faiss_index", description="Path for FAISS index files")
-    dimension: int = Field(default=384, ge=128, le=1536, description="Embedding dimension")
-    # Redis specific configuration
+    dimension: int = Field(default=384, ge=1, le=4096)
+    # Redis specific settings
     redis_host: str = Field(default="localhost", description="Redis server hostname")
     redis_port: int = Field(default=6379, description="Redis server port")
     redis_password: Optional[str] = Field(default=None, description="Redis password if authentication is required")
     redis_index_name: str = Field(default="document-index", description="Redis search index name")
+    # Neo4j specific settings
+    neo4j_uri: str = Field(default="neo4j://localhost:7687", description="Neo4j server URI")
+    neo4j_user: str = Field(default="neo4j", description="Neo4j username")
+    neo4j_password: Optional[str] = Field(default=None, description="Neo4j password")
+    neo4j_database: str = Field(default="neo4j", description="Neo4j database name")
 
 class EmbeddingConfig(BaseModel):
     model: Union[EmbeddingModel, str] = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM

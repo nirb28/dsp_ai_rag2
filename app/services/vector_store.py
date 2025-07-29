@@ -20,6 +20,7 @@ from app.services.embedding_service import EmbeddingService
 from app.services.base_vector_store import BaseVectorStore
 from app.services.bm25_store import BM25VectorStore
 from app.services.networkx_graph_store import NetworkXGraphStore
+from app.services.neo4j_graph_store import Neo4jGraphStore
 
 logger = logging.getLogger(__name__)
 
@@ -386,19 +387,19 @@ class VectorStoreManager:
 
     def get_vector_store(self, configuration_name: str, config: VectorStoreConfig, embedding_config: dict) -> Any:
         """Get or create a vector store for a configuration."""
-        if configuration_name not in self.stores:
-            # Create configuration-specific config with updated paths for configuration
+        if configuration_name in self.stores:
+            return self.stores[configuration_name]
+        
+        try:
+            # Create a new vector store based on config
+            logger.info(f"Creating new vector store for configuration {configuration_name} with type {config.type}")
+            
             if config.type == VectorStore.FAISS:
-                # For FAISS, we need to update the index path for the specific configuration
+                # For FAISS, create a unique index directory for this configuration
                 configuration_config = VectorStoreConfig(
                     type=config.type,
                     index_path=f"{config.index_path}/{configuration_name}",
-                    dimension=config.dimension,
-                    # Include Redis settings to avoid validation errors
-                    redis_host=config.redis_host,
-                    redis_port=config.redis_port,
-                    redis_password=config.redis_password,
-                    redis_index_name=config.redis_index_name
+                    dimension=config.dimension
                 )
                 embedding_service = EmbeddingService(embedding_config)
                 self.stores[configuration_name] = FAISSVectorStore(configuration_config, embedding_service)
@@ -446,11 +447,33 @@ class VectorStoreManager:
                     embedding_service = EmbeddingService(embedding_config)
                 self.stores[configuration_name] = NetworkXGraphStore(configuration_config, embedding_service)
                 logger.info(f"Created NetworkX graph store for configuration {configuration_name}")
+            
+            elif config.type == VectorStore.NEO4J:
+                # For Neo4j, pass through the connection parameters
+                configuration_config = {
+                    'type': config.type,
+                    'neo4j_uri': config.neo4j_uri,
+                    'neo4j_user': config.neo4j_user,
+                    'neo4j_password': config.neo4j_password,
+                    'neo4j_database': config.neo4j_database,
+                    'name': configuration_name  # Pass configuration name for graph structure
+                }
+                # Neo4j can optionally use embeddings for vector similarity
+                embedding_service = None
+                if embedding_config.get('enabled', False):
+                    embedding_service = EmbeddingService(embedding_config)
+                self.stores[configuration_name] = Neo4jGraphStore(configuration_config, embedding_service)
+                logger.info(f"Created Neo4j graph store for configuration {configuration_name}")
+                
             else:
                 raise ValueError(f"Unsupported vector store type: {config.type}")
                 
             logger.info(f"Created new vector store of type {config.type} for configuration {configuration_name}")
         
+        except Exception as e:
+            logger.error(f"Error creating vector store: {str(e)}")
+            raise
+            
         return self.stores[configuration_name]
 
     def list_configurations(self) -> List[str]:

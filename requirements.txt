@@ -32,6 +32,7 @@ weaviate-client
 redis
 rank-bm25
 networkx
+neo4j
 
 # Text processing and tokens
 tiktoken
