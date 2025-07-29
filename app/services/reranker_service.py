@@ -98,7 +98,7 @@ class RerankerService:
             # Format the request according to the model server API
             payload = {
                 "query": query,
-                "documents": document_texts,
+                "texts": document_texts,
                 "model_name": self.config.model
             }
             

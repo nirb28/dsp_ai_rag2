@@ -242,7 +242,7 @@ async def evaluate_classification(request: ClassificationEvalRequest):
         raise HTTPException(status_code=500, detail=f"Classification evaluation failed: {str(e)}")
 
 
-@router.get("/models")
+@router.get("/list")
 async def list_models():
     """List available models in the models directory."""
     # Import needed modules and variables
