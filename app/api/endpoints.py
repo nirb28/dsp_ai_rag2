@@ -283,7 +283,8 @@ async def query_documents(request: QueryRequest):
             config_override=config if temp_config else None,
             system_prompt=system_prompt,
             query_expansion=query_expansion_dict,
-            filter_after_reranking=request.filter_after_reranking
+            filter_after_reranking=request.filter_after_reranking,
+            filter=request.filter
         )
         
         # Filter metadata if requested
@@ -742,7 +743,8 @@ async def retrieve_documents(
                 k=k,
                 similarity_threshold=similarity_threshold,
                 query_expansion=query_expansion_dict,
-                filter_after_reranking=request.filter_after_reranking
+                filter_after_reranking=request.filter_after_reranking,
+                filter=request.filter
             )
             
             # Add source configuration to each document
@@ -1123,11 +1125,12 @@ async def delete_all_documents(configuration_name: str = Query(...), confirm: bo
 
 
 @router.get("/documents")
-async def list_documents(configuration_name: str = Query(...)):
+async def list_documents(configuration_name: str = Query(...), include_metadata: bool = True):
     """List all unique documents in a configuration.
     
     Args:
         configuration_name: The configuration to list documents from
+        include_metadata: Whether to include detailed metadata in the response (default: True)
         
     Returns:
         List of unique document IDs and their metadata
@@ -1153,10 +1156,11 @@ async def list_documents(configuration_name: str = Query(...)):
                     'chunk_count': 1
                 }
                 
-                # Add any other useful metadata
-                for key, value in doc.metadata.items():
-                    if key not in ['document_id', 'chunk']:
-                        unique_documents[doc_id][key] = value
+                # Add any other useful metadata if include_metadata is True
+                if include_metadata:
+                    for key, value in doc.metadata.items():
+                        if key not in ['document_id', 'chunk']:
+                            unique_documents[doc_id][key] = value
             else:
                 # Increment chunk count for existing documents
                 unique_documents[doc_id]['chunk_count'] += 1

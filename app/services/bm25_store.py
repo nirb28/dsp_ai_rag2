@@ -56,8 +56,21 @@ class BM25VectorStore(BaseVectorStore):
         
         logger.info(f"Added {len(documents)} documents to BM25 index. Total documents: {len(self.documents)}")
     
-    def similarity_search(self, query: str, k: int = 5, similarity_threshold: float = None) -> List[Tuple[Document, float]]:
-        """Search for documents similar to the query using BM25."""
+    def similarity_search(
+        self, 
+        query: str, 
+        k: int = 5, 
+        similarity_threshold: float = None,
+        filter: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[Document, float]]:
+        """Search for documents similar to the query using BM25 with optional metadata filtering.
+        
+        Args:
+            query: The search query string
+            k: Number of documents to return
+            similarity_threshold: Minimum similarity score threshold
+            filter: MongoDB-style filter conditions for metadata (LangChain convention)
+        """
         if not self.bm25 or not self.documents:
             return []
             
@@ -67,15 +80,21 @@ class BM25VectorStore(BaseVectorStore):
         # Get scores using BM25
         scores = self.bm25.get_scores(tokenized_query)
         
-        # Apply threshold if specified
-        if similarity_threshold is not None:
-            # Filter results by threshold
-            doc_score_pairs = [(self.documents[i], scores[i]) 
-                               for i in range(len(scores)) 
-                               if scores[i] > similarity_threshold]
-        else:
-            doc_score_pairs = [(self.documents[i], scores[i]) 
-                              for i in range(len(scores))]
+        # Create document-score pairs and apply filters
+        doc_score_pairs = []
+        for i in range(len(scores)):
+            doc = self.documents[i]
+            score = scores[i]
+            
+            # Apply similarity threshold if specified
+            if similarity_threshold is not None and score <= similarity_threshold:
+                continue
+                
+            # Apply metadata filtering if specified
+            if filter and not self._matches_filter(doc.metadata, filter):
+                continue
+                
+            doc_score_pairs.append((doc, score))
         
         # Sort by score in descending order
         doc_score_pairs.sort(key=lambda x: x[1], reverse=True)
@@ -167,3 +186,5 @@ class BM25VectorStore(BaseVectorStore):
             self.documents = []
             self.bm25 = None
             self.tokenized_corpus = []
+    
+

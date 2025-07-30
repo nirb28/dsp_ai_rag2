@@ -35,6 +35,7 @@ class FAISSVectorStore(BaseVectorStore):
         self.metadata = []
         self._initialize_index()
 
+
     def _initialize_index(self):
         """Initialize or load FAISS index."""
         try:
@@ -113,9 +114,29 @@ class FAISSVectorStore(BaseVectorStore):
         query: str, 
         k: int = 5, 
         similarity_threshold: float = 0.7,
-        filter_metadata: Optional[Dict[str, Any]] = None
+        filter: Optional[Dict[str, Any]] = None
     ) -> List[Tuple[LangchainDocument, float]]:
-        """Search for similar documents."""
+        """Search for similar documents with LangChain-style metadata filtering.
+        
+        Args:
+            query: The search query string
+            k: Number of documents to return
+            similarity_threshold: Minimum similarity score threshold
+            filter: MongoDB-style filter conditions for metadata (LangChain convention)
+            
+        Returns:
+            List of tuples containing (document, similarity_score)
+            
+        Examples:
+            # Simple equality filtering
+            filter = {"source": "tweet"}
+            
+            # Advanced filtering with operators
+            filter = {"source": {"$eq": "tweet"}}
+            filter = {"score": {"$gt": 0.8}}
+            filter = {"category": {"$in": ["tech", "science"]}}
+            filter = {"$and": [{"source": "news"}, {"score": {"$gt": 0.7}}]}
+        """
         try:
             if len(self.documents) == 0:
                 return []
@@ -127,8 +148,9 @@ class FAISSVectorStore(BaseVectorStore):
             # Normalize query vector
             faiss.normalize_L2(query_vector)
             
-            # Search
-            search_k = min(k * 2, len(self.documents))  # Search more to allow for filtering
+            # Search with larger k to allow for filtering
+            # If we have metadata filters, we might need to search more documents
+            search_k = min(k * 3 if filter else k * 2, len(self.documents))
             scores, indices = self.index.search(query_vector, search_k)
             
             results = []
@@ -142,9 +164,9 @@ class FAISSVectorStore(BaseVectorStore):
                 doc = self.documents[idx]
                 metadata = self.metadata[idx]
                 
-                # Apply metadata filtering if specified
-                if filter_metadata:
-                    if not all(metadata.get(key) == value for key, value in filter_metadata.items()):
+                # Apply LangChain-style metadata filtering if specified
+                if filter:
+                    if not self._matches_filter(metadata, filter):
                         continue
                 
                 results.append((doc, float(score)))
@@ -152,7 +174,7 @@ class FAISSVectorStore(BaseVectorStore):
                 if len(results) >= k:
                     break
             
-            logger.info(f"Found {len(results)} similar documents for query")
+            logger.info(f"Found {len(results)} similar documents for query (filter: {filter is not None})")
             return results
             
         except Exception as e:
@@ -300,28 +322,41 @@ class RedisVectorStore(BaseVectorStore):
         query: str, 
         k: int = 5, 
         similarity_threshold: float = 0.7,
-        filter_metadata: Optional[Dict[str, Any]] = None
+        filter: Optional[Dict[str, Any]] = None
     ) -> List[Tuple[LangchainDocument, float]]:
-        """Search for similar documents."""
+        """Search for similar documents with LangChain-style metadata filtering.
+        
+        Note: Redis implementation supports basic equality filtering in the query.
+        Complex MongoDB operators are applied post-search for compatibility.
+        
+        Args:
+            query: The search query string
+            k: Number of documents to return
+            similarity_threshold: Minimum similarity score threshold
+            filter: MongoDB-style filter conditions for metadata (LangChain convention)
+        """
         try:
             # Generate query embedding
             query_embedding = self.embedding_service.embed_query(query)
             query_vector = np.array(query_embedding, dtype=np.float32)
             
-            # Build Redis query
-            base_query = f"*=>[KNN {k} @{self.vector_field_name} $vector AS score]"
+            # Build Redis query with basic filtering
+            # For complex filters, we'll search more and filter post-search
+            search_k = k * 2 if filter else k
+            base_query = f"*=>[KNN {search_k} @{self.vector_field_name} $vector AS score]"
             
-            # Add metadata filters if provided
-            if filter_metadata:
-                for key, value in filter_metadata.items():
-                    base_query += f" @metadata:{key}:{value}"
+            # Add simple equality filters to Redis query if possible
+            if filter and self._is_simple_filter(filter):
+                for key, value in filter.items():
+                    if not key.startswith('$') and not isinstance(value, dict):
+                        base_query += f" @metadata:{key}:{value}"
             
             # Create query object
             redis_query = Query(base_query)\
                 .sort_by("score")\
                 .dialect(2)\
                 .return_fields("content", "metadata", "score", "filename")\
-                .paging(0, k)
+                .paging(0, search_k)
                 
             # Execute the query
             query_params = {"vector": query_vector.tobytes()}
@@ -343,18 +378,39 @@ class RedisVectorStore(BaseVectorStore):
                 except:
                     metadata = {"filename": doc.filename}
                 
+                # Apply complex MongoDB-style filtering if needed
+                if filter and not self._is_simple_filter(filter):
+                    if not self._matches_filter(metadata, filter):
+                        continue
+                
                 # Create LangChain document
                 langchain_doc = LangchainDocument(page_content=content, metadata=metadata)
                 
                 # Append to results
                 output.append((langchain_doc, score))
+                
+                # Stop when we have enough results
+                if len(output) >= k:
+                    break
             
-            logger.info(f"Found {len(output)} similar documents for query in Redis")
+            logger.info(f"Found {len(output)} similar documents for query in Redis (filter: {filter is not None})")
             return output
             
         except Exception as e:
             logger.error(f"Error searching Redis index: {str(e)}")
             raise
+    
+    def _is_simple_filter(self, filter_dict: Dict[str, Any]) -> bool:
+        """Check if filter contains only simple equality conditions."""
+        if not filter_dict:
+            return True
+        
+        for key, value in filter_dict.items():
+            if key.startswith('$') or isinstance(value, dict):
+                return False
+        return True
+    
+
     
     def delete_documents(self, document_ids: List[str]) -> bool:
         """Delete documents from the vector store."""

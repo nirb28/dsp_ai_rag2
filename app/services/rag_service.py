@@ -256,7 +256,8 @@ class RAGService:
         config_override: Optional[RAGConfig] = None,
         system_prompt: Optional[str] = None,
         query_expansion: Optional[Dict[str, Any]] = None,
-        filter_after_reranking: bool = True
+        filter_after_reranking: bool = True,
+        filter: Optional[Dict[str, Any]] = None
     ) -> QueryResponse:
         """Query the RAG system with optional context injection and reranking.
     
@@ -268,6 +269,8 @@ class RAGService:
         context_items: Optional list of additional context items to include with the retrieved documents
         config_override: Optional RAGConfig object to override the configuration settings for this query
                         (can be used to override generation endpoint, embedding endpoint, or vector store)
+        filter_after_reranking: Whether to apply score threshold filtering after reranking
+        filter: LangChain-style metadata filter for document retrieval
         
     Returns:
         QueryResponse with answer and sources
@@ -343,7 +346,8 @@ class RAGService:
                 results = vector_store.similarity_search(
                     q,
                     k=k if not reranker_service.config.enabled else max(k, reranker_service.config.top_n),
-                    similarity_threshold=similarity_threshold
+                    similarity_threshold=similarity_threshold,
+                    filter=filter
                 )
                 
                 # Add query source information to results
@@ -734,7 +738,8 @@ class RAGService:
         k: int = 5,
         similarity_threshold: float = 0.0,
         query_expansion: Optional[Dict[str, Any]] = None,
-        filter_after_reranking: bool = True
+        filter_after_reranking: bool = True,
+        filter: Optional[Dict[str, Any]] = None
     ) -> tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """Retrieve documents with optional query expansion.
         
@@ -744,6 +749,8 @@ class RAGService:
             k: Number of documents to retrieve
             similarity_threshold: Minimum similarity threshold
             query_expansion: Optional query expansion configuration
+            filter_after_reranking: Whether to apply score threshold filtering after reranking
+            filter: LangChain-style metadata filter for document retrieval
             
         Returns:
             Tuple of (documents list, expansion metadata dict or None)
@@ -793,7 +800,8 @@ class RAGService:
                 results = vector_store.similarity_search(
                     q,
                     k=k,
-                    similarity_threshold=similarity_threshold
+                    similarity_threshold=similarity_threshold,
+                    filter=filter
                 )
                 logger.debug(f"[Retrieve] Retrieved {len(results)} results for query '{q}'. Top 3 scores: {[r[1] for r in results[:3]] if results else []}")
                 # Add query source information to results

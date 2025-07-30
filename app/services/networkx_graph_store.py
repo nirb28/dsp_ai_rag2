@@ -201,7 +201,7 @@ class NetworkXGraphStore(BaseVectorStore):
         query: str, 
         k: int = 5, 
         similarity_threshold: float = 0.3,
-        filter_metadata: Optional[Dict[str, Any]] = None
+        filter: Optional[Dict[str, Any]] = None
     ) -> List[Tuple[LangchainDocument, float]]:
         """
         Search for similar documents using graph algorithms.
@@ -287,18 +287,13 @@ class NetworkXGraphStore(BaseVectorStore):
                 
                 candidate_docs.update(neighbor_docs)
             
-            # Apply metadata filtering if provided
-            if filter_metadata:
+            # Apply LangChain-style metadata filtering if provided
+            if filter:
                 filtered_candidates = set()
                 for doc_id in candidate_docs:
                     if doc_id in self.node_documents:
                         doc_metadata = self.node_documents[self.document_nodes[doc_id]]['metadata']
-                        match = True
-                        for key, value in filter_metadata.items():
-                            if key not in doc_metadata or doc_metadata[key] != value:
-                                match = False
-                                break
-                        if match:
+                        if self._matches_filter(doc_metadata, filter):
                             filtered_candidates.add(doc_id)
                 candidate_docs = filtered_candidates
             
@@ -328,6 +323,8 @@ class NetworkXGraphStore(BaseVectorStore):
         except Exception as e:
             logger.error(f"Error searching NetworkX graph: {str(e)}")
             return []
+    
+
     
     def delete_documents(self, document_ids: List[str]) -> None:
         """Delete documents from the graph store."""

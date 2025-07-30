@@ -245,7 +245,7 @@ class Neo4jGraphStore(BaseVectorStore):
         query: str, 
         k: int = 5, 
         similarity_threshold: float = 0.3,
-        filter_metadata: Optional[Dict[str, Any]] = None
+        filter: Optional[Dict[str, Any]] = None
     ) -> List[Tuple[LangchainDocument, float]]:
         """
         Search for similar documents using graph algorithms.
@@ -283,7 +283,7 @@ class Neo4jGraphStore(BaseVectorStore):
                             score = min(0.9, 0.5 + (record["matching_count"] / len(entities) * 0.4))
                             
                             # Apply filter if specified
-                            if filter_metadata and not self._matches_filter(doc_metadata, filter_metadata):
+                            if filter and not self._matches_filter(doc_metadata, filter):
                                 continue
                                 
                             doc_scores[doc_id] = max(doc_scores.get(doc_id, 0), score)
@@ -310,7 +310,7 @@ class Neo4jGraphStore(BaseVectorStore):
                             score = min(0.8, 0.3 + (record["matching_count"] / len(keywords) * 0.5))
                             
                             # Apply filter if specified
-                            if filter_metadata and not self._matches_filter(doc_metadata, filter_metadata):
+                            if filter and not self._matches_filter(doc_metadata, filter):
                                 continue
                                 
                             if doc_id in doc_scores:
@@ -347,7 +347,7 @@ class Neo4jGraphStore(BaseVectorStore):
                             score = min(0.95, max(0.0, record["score"]))
                             
                             # Apply filter if specified
-                            if filter_metadata and not self._matches_filter(doc_metadata, filter_metadata):
+                            if filter and not self._matches_filter(doc_metadata, filter):
                                 continue
                                 
                             if doc_id in doc_scores:
@@ -389,7 +389,7 @@ class Neo4jGraphStore(BaseVectorStore):
                             score = min(0.7, source_score * 0.7 * (0.5 + rel_strength))
                             
                             # Apply filter if specified
-                            if filter_metadata and not self._matches_filter(doc_metadata, filter_metadata):
+                            if filter and not self._matches_filter(doc_metadata, filter):
                                 continue
                                 
                             if doc_id in doc_scores:
@@ -429,12 +429,7 @@ class Neo4jGraphStore(BaseVectorStore):
             # Return empty list on error
             return []
     
-    def _matches_filter(self, metadata: Dict[str, Any], filter_metadata: Dict[str, Any]) -> bool:
-        """Check if document metadata matches the filter criteria."""
-        for key, value in filter_metadata.items():
-            if key not in metadata or metadata[key] != value:
-                return False
-        return True
+
     
     def delete_documents(self, document_ids: List[str]) -> None:
         """Delete documents from the graph store."""
