@@ -1,5 +1,61 @@
 # DSP AI RAG2 - Release Notes
 
+## Version 2.8.0 (July 30, 2025)
+
+### New Features
+
+#### Comprehensive Security System
+- **JWT Bearer Authentication**: Added configurable JWT token validation with support for custom claims
+- **Metadata Filtering via JWT**: Extract `metadata_filter` claim from JWT tokens to automatically filter documents
+- **Security Configuration**: Added `SecurityConfig` class with JWT secret, algorithm, issuer, audience validation
+- **Filter Merging**: Automatically combines request filters with JWT metadata filters using MongoDB-style operators
+- **Optional Security**: Security is disabled by default with `enabled: false` flag for backward compatibility
+- **Comprehensive Error Handling**: Proper HTTP 401 responses for authentication failures
+
+#### Advanced Query Expansion
+- **LLM Configuration Management**: Full CRUD operations for LLM configurations supporting Groq, OpenAI-compatible, and Triton providers
+- **Multiple Expansion Strategies**: 
+  - **Fusion Strategy**: Generates semantically similar query variations with different phrasings
+  - **Multi-Query Strategy**: Generates related queries exploring different aspects of the topic
+- **Configurable Parameters**: Support for 1-10 expanded queries with customizable generation parameters
+- **Query Expansion Metadata**: Optional detailed metadata about the expansion process including timing, success rates, and per-query statistics
+- **Result Merging**: Intelligent deduplication and merging of results from multiple expanded queries
+- **Fallback Behavior**: Graceful degradation to original query if expansion fails
+
+#### Enhanced Vector Store Filtering
+- **LangChain-Compatible Filtering**: Updated all vector stores to use LangChain's standard `filter` parameter
+- **MongoDB-Style Operators**: Full support for `$eq`, `$neq`, `$gt`, `$lt`, `$gte`, `$lte`, `$in`, `$nin`, `$and`, `$or`, `$not`
+- **Optimized FAISS Filtering**: Enhanced search efficiency with dynamic search_k adjustment based on filter complexity
+- **Cross-Platform Filtering**: Consistent filtering implementation across FAISS, Redis, NetworkX, Neo4j, and BM25 vector stores
+- **Hybrid Redis Filtering**: Combines simple filters in query with complex post-search MongoDB filtering
+
+#### Flexible Reranking Control
+- **Filter After Reranking**: Added `filter_after_reranking` parameter to control score threshold application
+- **Endpoint-Only Architecture**: Removed all local model dependencies, now supports only Cohere API and Model Server endpoints
+- **Simplified Configuration**: Streamlined reranker configuration with endpoint-based options only
+- **Backward Compatibility**: Default behavior maintains existing filtering while allowing flexible control
+
+#### Graph Database Integration
+- **NetworkX Vector Store**: Added graph-based document storage and retrieval as alternative to traditional vector stores
+- **Graph-Based Similarity**: Implements similarity search using graph algorithms instead of vector similarity
+- **Seamless Integration**: Follows existing BaseVectorStore interface for consistent API
+
+### API Enhancements
+- **Security Headers**: Added Authorization header support to `/query` and `/retrieve` endpoints
+- **Query Expansion Parameters**: New `query_expansion` object in request models with strategy and LLM configuration
+- **Metadata Control**: Added `include_metadata` parameter for detailed query expansion insights
+- **Configuration Names Endpoint**: Enhanced `/configurations` endpoint with `names_only` parameter for streamlined access
+
+### Performance Improvements
+- **Optimized Filtering**: Improved search performance with smart filter-based search_k adjustment
+- **Efficient Result Merging**: Enhanced deduplication algorithms for multi-query results
+- **Reduced Dependencies**: Eliminated local model loading for faster startup and reduced memory usage
+
+### Developer Experience
+- **Comprehensive Test Scripts**: Added test scripts for all major features including security, filtering, and query expansion
+- **Enhanced Documentation**: Updated API documentation with security examples and query expansion usage
+- **Flexible Model Support**: Support for custom model names beyond predefined enums
+
 ## Version 2.4.0 (July 17, 2025)
 
 ### New Features
