@@ -212,6 +212,12 @@ class LLMConfig(BaseModel):
             raise ValueError(f"Invalid provider: {self.provider}. Must be one of: {', '.join([p.value for p in LLMProvider])}")
         return self
 
+class SecurityType(str, Enum):
+    """Available security authentication types."""
+    JWT_BEARER = "jwt_bearer"  # JWT Bearer token authentication
+    API_KEY = "api_key"  # API Key authentication (future)
+    OAUTH2 = "oauth2"  # OAuth2 authentication (future)
+
 class QueryExpansionStrategy(str, Enum):
     """Available query expansion strategies."""
     FUSION = "fusion"  # Generate multiple variations and fuse results
@@ -224,6 +230,36 @@ class QueryExpansionConfig(BaseModel):
     llm_config_name: str = Field(..., description="Name of the LLM configuration to use")
     num_queries: int = Field(default=3, ge=1, le=10, description="Number of expanded queries to generate")
 
+class SecurityConfig(BaseModel):
+    """Configuration for security authentication."""
+    enabled: bool = Field(default=False, description="Whether to enable security authentication")
+    type: SecurityType = Field(default=SecurityType.JWT_BEARER, description="Type of security authentication")
+    
+    # JWT Bearer token configuration
+    jwt_secret_key: Optional[str] = Field(default=None, description="Secret key for JWT token validation")
+    jwt_algorithm: str = Field(default="HS256", description="Algorithm used for JWT token validation")
+    jwt_issuer: Optional[str] = Field(default=None, description="Expected issuer of JWT tokens")
+    jwt_audience: Optional[str] = Field(default=None, description="Expected audience of JWT tokens")
+    jwt_require_exp: bool = Field(default=True, description="Whether to require expiration claim in JWT")
+    jwt_require_iat: bool = Field(default=True, description="Whether to require issued at claim in JWT")
+    jwt_leeway: int = Field(default=0, ge=0, description="Leeway in seconds for token expiration validation")
+    
+    # API Key configuration (for future use)
+    api_key_header: str = Field(default="X-API-Key", description="Header name for API key authentication")
+    api_keys: Optional[List[str]] = Field(default=None, description="List of valid API keys")
+    
+    @model_validator(mode='after')
+    def validate_security_config(self):
+        """Validate security configuration based on type."""
+        if self.enabled:
+            if self.type == SecurityType.JWT_BEARER:
+                if not self.jwt_secret_key:
+                    raise ValueError("jwt_secret_key is required when JWT Bearer authentication is enabled")
+            elif self.type == SecurityType.API_KEY:
+                if not self.api_keys or len(self.api_keys) == 0:
+                    raise ValueError("api_keys list is required when API Key authentication is enabled")
+        return self
+
 class RAGConfig(BaseModel):
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     vector_store: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
@@ -233,6 +269,7 @@ class RAGConfig(BaseModel):
     similarity_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     # New features
     reranking: Optional[RerankerConfig] = Field(default_factory=RerankerConfig)
+    security: Optional[SecurityConfig] = Field(default_factory=SecurityConfig)
 
 class Settings:
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")

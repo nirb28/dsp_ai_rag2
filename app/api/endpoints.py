@@ -5,7 +5,7 @@ import json
 import uuid
 import numpy as np
 from typing import Any, Dict, List, Optional, Union
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query, Header
 from fastapi.responses import JSONResponse
 from fastapi import Body
 import logging
@@ -215,12 +215,26 @@ async def upload_text_documents(request: TextDocumentsUploadRequest):
 
 
 @router.post("/query", response_model=QueryResponse)
-async def query_documents(request: QueryRequest):
+async def query_documents(
+    request: QueryRequest,
+    authorization: Optional[str] = Header(None, alias="Authorization")
+):
     """Query documents in a configuration.
     
     Uses reranking if configured for the configuration.
+    Supports JWT Bearer token authentication if security is enabled.
     """
     try:
+        # Validate security and merge filters
+        merged_filter = rag_service.validate_security_and_merge_filters(
+            configuration_name=request.configuration_name,
+            authorization_header=authorization,
+            request_filter=request.filter
+        )
+        
+        # Update request filter with merged filter (includes JWT metadata filters)
+        request.filter = merged_filter
+        
         # Get original configuration
         config = rag_service.get_configuration(request.configuration_name)
         temp_config = None
@@ -652,15 +666,18 @@ async def retrieve_documents(
                 }
             }
         }
-    )
+    ),
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """Retrieve relevant documents from a configuration without generating a response.
     
     This endpoint allows direct access to the vector retrieval functionality without LLM generation.
     It supports retrieving from multiple vector stores and combining results using fusion methods.
+    Supports JWT Bearer token authentication if security is enabled.
     
     Args:
         request: The retrieval request containing query and options
+        authorization: Authorization header for security validation
     
     Returns:
         Documents retrieved from the vector store(s), optionally reranked or fused
@@ -668,9 +685,27 @@ async def retrieve_documents(
     try:
         start_time = time.time()
         
-        # Check for multiple configurations
-        multi_config = False
+        # Determine configuration names for security validation
         config_names = []
+        if request.configuration_names and len(request.configuration_names) > 0:
+            config_names = request.configuration_names
+        else:
+            config_names = [request.configuration_name]
+        
+        # Validate security for the primary configuration and merge filters
+        # For multi-config requests, we use the first configuration's security settings
+        primary_config_name = config_names[0]
+        merged_filter = rag_service.validate_security_and_merge_filters(
+            configuration_name=primary_config_name,
+            authorization_header=authorization,
+            request_filter=request.filter
+        )
+        
+        # Update request filter with merged filter (includes JWT metadata filters)
+        request.filter = merged_filter
+        
+        # Check for multiple configurations
+        multi_config = len(config_names) > 1
         
         if request.configuration_names and len(request.configuration_names) > 0:
             # Multiple configurations specified

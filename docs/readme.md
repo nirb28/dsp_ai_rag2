@@ -10,6 +10,7 @@ A comprehensive Retrieval-Augmented Generation (RAG) platform built with FastAPI
   - **Redis**: Redis-based vector storage with filtering capabilities
   - **BM25**: Keyword-based search without requiring embeddings or model downloads
 - **Multi-Vector Store Retrieval**: Retrieve from multiple vector stores with fusion methods
+- **Security & Authentication**: Optional JWT Bearer token authentication with metadata-based document filtering (see `docs/security.md`)
 - **Endpoint-Only Mode**: Option to run without downloading models locally (see `docs/ENDPOINT_ONLY_SETUP.md`)
 - **Groq Integration**: Fast inference with Groq's LLM API
 - **System Prompt Customization**: Override system prompts per request
@@ -380,6 +381,18 @@ The application logs to stdout. Increase verbosity by setting log level:
 import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
+
+## Documentation
+
+Detailed documentation is available in the `docs/` directory:
+
+- **[Security & Authentication](docs/security.md)** - JWT Bearer token authentication and metadata filtering
+- **[Query Expansion](docs/QUERY_EXPANSION.md)** - Multi-query generation and result fusion
+- **[NetworkX Graph Store](docs/NETWORKX_GRAPH_STORE.md)** - Graph-based document storage and retrieval
+- **[Neo4j Integration](docs/neo4j_integration.md)** - Neo4j graph database integration
+- **[Endpoint-Only Setup](docs/ENDPOINT_ONLY_SETUP.md)** - Running without local model downloads
+- **[Model Server Setup](docs/model_server_readme.md)** - Setting up local model servers
+- **[Release Notes](docs/RELEASE_NOTES.md)** - Version history and changes
 
 ## Contributing
 

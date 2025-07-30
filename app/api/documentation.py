@@ -304,3 +304,116 @@ async def mcp_integration_documentation():
             "filtered_import": "POST /api/v1/mcp/import_all?title_filter=research"
         }
     }
+
+@router.get("/security")
+async def security_documentation():
+    """
+    Get detailed information about security and authentication features.
+    
+    This endpoint provides comprehensive documentation about the security
+    configuration options, JWT authentication, and metadata filtering capabilities.
+    """
+    return {
+        "overview": "The RAG system supports optional security authentication to control access to query and retrieve endpoints with JWT Bearer token authentication and metadata-based document filtering.",
+        "security_types": {
+            "jwt_bearer": {
+                "description": "JSON Web Token based authentication with configurable validation",
+                "status": "Available",
+                "features": [
+                    "Configurable secret keys and algorithms",
+                    "Issuer and audience validation",
+                    "Expiration and issued-at validation",
+                    "Metadata filtering via JWT claims",
+                    "Secure token validation with proper error handling"
+                ]
+            },
+            "api_key": {
+                "description": "Simple API key authentication",
+                "status": "Future implementation",
+                "features": ["Custom header configuration", "Multiple API keys support"]
+            },
+            "oauth2": {
+                "description": "OAuth2 flow authentication",
+                "status": "Future implementation",
+                "features": ["Standard OAuth2 flows", "Token introspection"]
+            }
+        },
+        "configuration": {
+            "security_block": {
+                "enabled": "Boolean flag to enable/disable security (default: false)",
+                "type": "Authentication type (jwt_bearer, api_key, oauth2)",
+                "jwt_secret_key": "Secret key for JWT validation (required for JWT)",
+                "jwt_algorithm": "Algorithm for JWT validation (default: HS256)",
+                "jwt_issuer": "Expected issuer of JWT tokens (optional)",
+                "jwt_audience": "Expected audience of JWT tokens (optional)",
+                "jwt_require_exp": "Whether to require expiration claim (default: true)",
+                "jwt_require_iat": "Whether to require issued-at claim (default: true)",
+                "jwt_leeway": "Leeway in seconds for token expiration (default: 0)"
+            },
+            "example": {
+                "security": {
+                    "enabled": True,
+                    "type": "jwt_bearer",
+                    "jwt_secret_key": "your-secret-key",
+                    "jwt_algorithm": "HS256",
+                    "jwt_issuer": "your-auth-service",
+                    "jwt_audience": "rag-api"
+                }
+            }
+        },
+        "jwt_claims": {
+            "standard_claims": {
+                "sub": "Subject (user identifier)",
+                "iat": "Issued at timestamp",
+                "exp": "Expiration timestamp",
+                "iss": "Issuer",
+                "aud": "Audience"
+            },
+            "custom_claims": {
+                "metadata_filter": {
+                    "description": "Document filtering criteria applied automatically",
+                    "type": "Object",
+                    "example": {"department": "engineering", "level": "public"}
+                }
+            }
+        },
+        "metadata_filtering": {
+            "description": "JWT tokens can include metadata_filter claim for automatic document filtering",
+            "operators": {
+                "equality": {"department": "engineering"},
+                "comparison": {"score": {"$gte": 0.8}},
+                "array": {"tags": {"$in": ["ai", "ml"]}},
+                "logical": {"$and": [{"dept": "eng"}, {"level": "public"}]}
+            },
+            "filter_merging": "Request filters and JWT filters are combined using $and operator"
+        },
+        "api_usage": {
+            "authentication_header": "Authorization: Bearer <jwt_token>",
+            "query_endpoint": "POST /api/v1/query with Authorization header",
+            "retrieve_endpoint": "POST /api/v1/retrieve with Authorization header",
+            "error_responses": {
+                "401": "Unauthorized - Missing/invalid/expired token",
+                "400": "Bad Request - Invalid configuration",
+                "500": "Internal Server Error - Server configuration issues"
+            }
+        },
+        "testing": {
+            "test_script": "test_security_feature.py provides comprehensive security testing",
+            "test_coverage": [
+                "Configuration creation with security enabled",
+                "Authentication without token (should fail)",
+                "Authentication with valid JWT token",
+                "Metadata filter extraction and application",
+                "Invalid and expired token handling"
+            ]
+        },
+        "best_practices": [
+            "Use strong, cryptographically secure secret keys",
+            "Set appropriate token expiration times",
+            "Configure issuer and audience validation for production",
+            "Always use HTTPS in production",
+            "Implement key rotation for long-term security",
+            "Use metadata filters for principle of least privilege",
+            "Monitor and log authentication attempts"
+        ]
+    }

@@ -13,6 +13,7 @@ from app.services.vector_store import VectorStoreManager, FAISSVectorStore
 from app.services.generation_service import GenerationServiceFactory
 from app.services.reranker_service import RerankerService
 from app.services.query_expansion_service import QueryExpansionService
+from app.services.security_service import SecurityService
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,13 @@ class RAGService:
             self.reranker_services[configuration_name] = RerankerService(config.reranking)
         
         return self.reranker_services[configuration_name]
+    
+    def _get_security_service(self, configuration_name: str) -> Optional[SecurityService]:
+        """Get security service for a configuration if security is enabled."""
+        config = self.get_configuration(configuration_name)
+        if config.security and config.security.enabled:
+            return SecurityService(config.security)
+        return None
         
     # _get_context_service method removed
 
@@ -245,6 +253,53 @@ class RAGService:
             document.error = str(e)
             logger.error(f"Error indexing document: {str(e)}")
             return False
+    
+    def validate_security_and_merge_filters(
+        self, 
+        configuration_name: str, 
+        authorization_header: Optional[str],
+        request_filter: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Validate security and merge filters from JWT claims with request filters.
+        
+        Args:
+            configuration_name: Name of the configuration
+            authorization_header: Authorization header from request
+            request_filter: Original filter from the request
+            
+        Returns:
+            Merged filters (request + JWT metadata filters)
+            
+        Raises:
+            HTTPException: If security validation fails
+        """
+        security_service = self._get_security_service(configuration_name)
+        
+        if not security_service:
+            # Security is disabled, return original filter
+            return request_filter
+        
+        # Validate the request
+        is_valid, jwt_claims = security_service.validate_request(authorization_header)
+        
+        if not is_valid:
+            # This should not happen as validate_request raises HTTPException on failure
+            from fastapi import HTTPException, status
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed"
+            )
+        
+        # Extract metadata filters from JWT claims
+        jwt_filters = security_service.extract_metadata_filters(jwt_claims)
+        
+        # Merge filters
+        merged_filters = security_service.merge_filters(request_filter, jwt_filters)
+        
+        if jwt_filters:
+            logger.debug(f"Applied JWT metadata filters for configuration '{configuration_name}': {jwt_filters}")
+        
+        return merged_filters
 
     async def query(
         self, 
