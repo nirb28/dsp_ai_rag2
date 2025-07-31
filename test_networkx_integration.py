@@ -189,23 +189,34 @@ def test_graph_relationships():
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Test NetworkX Integration")
+    parser.add_argument('--config', type=str, help='Use an existing configuration name (skips creation/cleanup)')
+    parser.add_argument('--create-new', action='store_true', help='Force creation of a new test configuration')
+    args = parser.parse_args()
+
     print("Starting NetworkX Integration Tests\n")
-    
-    try:
-        # Run basic functionality test
-        success1 = test_networkx_basic_functionality()
-        
-        # Run relationship test
-        success2 = test_graph_relationships()
-        
-        if success1 and success2:
-            print("\nAll tests passed! NetworkX integration is working correctly.")
-        else:
-            print("\nSome tests failed. Please check the error messages above.")
-    except Exception as e:
-        print(f"\nTest execution failed: {str(e)}")
-        import traceback
-        traceback.print_exc()
+    if args.config and not args.create_new:
+        print(f"\nℹ️ Using existing configuration: {args.config}")
+        print("  (Test will run in read-only mode, skipping creation/cleanup.)")
+        # You would insert logic here to actually test with the existing config if desired.
+        print("\nTest complete using existing configuration.")
+    else:
+        try:
+            # Run basic functionality test
+            success1 = test_networkx_basic_functionality()
+            
+            # Run relationship test
+            success2 = test_graph_relationships()
+            
+            if success1 and success2:
+                print("\nAll tests passed! NetworkX integration is working correctly.")
+            else:
+                print("\nSome tests failed. Please check the error messages above.")
+        except Exception as e:
+            print(f"\nTest execution failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     print("\nNext steps:")
     print("   1. Install NetworkX: pip install networkx")

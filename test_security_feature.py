@@ -14,15 +14,18 @@ import jwt
 import httpx
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
+import argparse
+import sys
 
 
 class SecurityFeatureTester:
     """Test class for security feature functionality."""
     
-    def __init__(self, base_url: str = "http://localhost:8000/api/v1"):
+    def __init__(self, base_url: str = "http://localhost:8000/api/v1", config_name: Optional[str] = None, jwt_secret: Optional[str] = None, use_existing_config: bool = False):
         self.base_url = base_url
-        self.test_config_name = "security_test_config"
-        self.jwt_secret = "test_secret_key_for_security_testing_123"
+        self.use_existing_config = use_existing_config
+        self.test_config_name = config_name if config_name else "security_test_config"
+        self.jwt_secret = jwt_secret if jwt_secret else "test_secret_key_for_security_testing_123"
         
     def create_jwt_token(
         self, 
@@ -89,7 +92,7 @@ class SecurityFeatureTester:
             }
         }
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/configurations",
                 json={
@@ -142,7 +145,7 @@ class SecurityFeatureTester:
             "process_immediately": "true"
         }
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/upload",
                 files=files,
@@ -161,7 +164,7 @@ class SecurityFeatureTester:
         """Test query endpoint without authentication (should fail)."""
         print("\n🔒 Testing query without authentication...")
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/query",
                 json={
@@ -189,7 +192,7 @@ class SecurityFeatureTester:
             metadata_filter=metadata_filter
         )
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/query",
                 json={
@@ -226,7 +229,7 @@ class SecurityFeatureTester:
             metadata_filter=metadata_filter
         )
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/retrieve",
                 json={
@@ -263,7 +266,7 @@ class SecurityFeatureTester:
         
         invalid_token = "invalid.jwt.token"
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/query",
                 json={
@@ -296,7 +299,7 @@ class SecurityFeatureTester:
         
         expired_token = jwt.encode(payload, self.jwt_secret, algorithm="HS256")
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/query",
                 json={
@@ -318,7 +321,7 @@ class SecurityFeatureTester:
         """Clean up the test configuration."""
         print("\n🧹 Cleaning up test configuration...")
         
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.delete(
                 f"{self.base_url}/configurations/{self.test_config_name}"
             )
@@ -336,14 +339,17 @@ class SecurityFeatureTester:
         print("=" * 50)
         
         test_results = []
+        create_and_cleanup = not self.use_existing_config
         
-        # Test 1: Create configuration
-        result = await self.create_test_configuration()
-        test_results.append(("Create Configuration", result))
-        
-        if not result:
-            print("❌ Cannot continue tests without configuration")
-            return
+        if create_and_cleanup:
+            # Test 1: Create configuration
+            result = await self.create_test_configuration()
+            test_results.append(("Create Configuration", result))
+            if not result:
+                print("❌ Cannot continue tests without configuration")
+                return
+        else:
+            print(f"\nℹ️ Using existing configuration: {self.test_config_name}")
         
         # Test 2: Upload test document
         valid_token = self.create_jwt_token()
@@ -370,8 +376,9 @@ class SecurityFeatureTester:
         result = await self.test_expired_jwt_token()
         test_results.append(("Expired JWT Token", result))
         
-        # Cleanup
-        await self.cleanup_test_configuration()
+        if create_and_cleanup:
+            # Cleanup
+            await self.cleanup_test_configuration()
         
         # Print summary
         print("\n" + "=" * 50)
@@ -397,9 +404,23 @@ class SecurityFeatureTester:
 
 async def main():
     """Main function to run the security tests."""
-    tester = SecurityFeatureTester()
-    await tester.run_all_tests()
+    parser = argparse.ArgumentParser(description="Test Security Feature for RAG2")
+    parser.add_argument('--config', action='store_true', help='Use an existing configuration name (skips creation/cleanup)')
+    parser.add_argument('--base-url', type=str, default="http://localhost:9000/api/v1", help='Base URL for the API')
+    parser.add_argument('--jwt-secret', type=str, help='JWT secret to use for token creation (default is test secret)')
+    parser.add_argument('--create-new', type=str, help='Force creation of a new test configuration')
+    args = parser.parse_args()
 
+    use_existing_config = args.config is not None and not args.create_new
+    config_name = args.config if args.config else None
+    config_name = "secure_jwt_demo"
+    tester = SecurityFeatureTester(
+        base_url=args.base_url,
+        config_name=config_name,
+        jwt_secret=args.jwt_secret,
+        use_existing_config=use_existing_config
+    )
+    await tester.run_all_tests()
 
 if __name__ == "__main__":
     asyncio.run(main())

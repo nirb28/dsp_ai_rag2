@@ -238,10 +238,16 @@ def test_multi_config_retrieve_debug_logging(config_names: List[str], fusion_met
 def main():
     """Main test function."""
     parser = argparse.ArgumentParser(description="Test debug logging for RAG endpoints")
-    parser.add_argument("--config", type=str, default="batch_ml_ai_basics_test", help="RAG configuration name to use")
+    parser.add_argument("--config", type=str, default="batch_ml_ai_basics_test", help="RAG configuration name to use (default: batch_ml_ai_basics_test)")
+    parser.add_argument("--create-new", action="store_true", help="Force creation of a new test configuration (not implemented, will warn)")
     parser.add_argument("--multi-config", action="store_true", help="Test with multiple configurations")
     parser.add_argument("--query-expansion", action="store_true", help="Test with query expansion")
     args = parser.parse_args()
+    
+    # Warn if --create-new is set (not implemented)
+    if args.create_new:
+        print("⚠️  --create-new is not implemented in this script. Only existing configs will be used.")
+    print(f"\nℹ️ Using configuration: {args.config}")
     
     # Create the debug_logs directory if it doesn't exist
     os.makedirs(os.path.join("storage", "debug_logs"), exist_ok=True)
@@ -255,7 +261,7 @@ def main():
     # Run multi-config retrieve test if requested
     if args.multi_config:
         # Use two test configurations - adjust as needed based on your available configs
-        configs = ["batch_ml_ai_basics_test", "batch_rl-docs_test"]
+        configs = [args.config, "batch_rl-docs_test"]
         test_multi_config_retrieve_debug_logging(configs)
 
 if __name__ == "__main__":

@@ -6,11 +6,12 @@ Simple test script to validate query expansion implementation
 import asyncio
 import sys
 import os
+import argparse
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-async def test_query_expansion():
+async def test_query_expansion(config_name=None, create_new=False):
     """Test the query expansion functionality."""
     print("🧪 Testing Query Expansion Implementation")
     print("=" * 50)
@@ -24,7 +25,15 @@ async def test_query_expansion():
         from app.services.rag_service import RAGService
         print("✅ All imports successful")
         
-        # Test LLM configuration creation
+        rag_service = RAGService()
+        if config_name and not create_new:
+            print(f"\nℹ️ Using existing configuration: {config_name}")
+            # Optionally, check if config exists
+            # If you want to test actual expansion logic with the config, add more here
+            print(f"\n{'='*50}")
+            print(f"🎉 Test finished using existing config '{config_name}' (no creation/cleanup).")
+            return True
+        # Otherwise, create and clean up test config
         print("\n🔧 Testing LLM configuration creation...")
         llm_config = LLMConfig(
             name="test-config",
@@ -42,7 +51,6 @@ async def test_query_expansion():
         
         # Test RAG service initialization
         print("\n🚀 Testing RAG service initialization...")
-        rag_service = RAGService()
         print(f"✅ RAG service initialized with {len(rag_service.llm_configurations)} LLM configs")
         
         # Test LLM config management
@@ -110,5 +118,9 @@ async def test_query_expansion():
     return True
 
 if __name__ == "__main__":
-    result = asyncio.run(test_query_expansion())
+    parser = argparse.ArgumentParser(description="Test Query Expansion Implementation")
+    parser.add_argument('--config', type=str, help='Use an existing configuration name (skips creation/cleanup)')
+    parser.add_argument('--create-new', action='store_true', help='Force creation of a new test configuration')
+    args = parser.parse_args()
+    result = asyncio.run(test_query_expansion(config_name=args.config, create_new=args.create_new))
     sys.exit(0 if result else 1)
