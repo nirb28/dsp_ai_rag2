@@ -19,8 +19,7 @@ from app.config import VectorStoreConfig, VectorStore, settings
 from app.services.embedding_service import EmbeddingService
 from app.services.base_vector_store import BaseVectorStore
 from app.services.bm25_store import BM25VectorStore
-from app.services.networkx_graph_store import NetworkXGraphStore
-from app.services.neo4j_graph_store import Neo4jGraphStore
+from app.services.neo4j_kg_adapter import Neo4jKnowledgeGraphAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -490,36 +489,27 @@ class VectorStoreManager:
                 self.stores[configuration_name] = BM25VectorStore(configuration_config, embedding_service)
                 logger.info(f"Created BM25 vector store for configuration {configuration_name}")
                 
-            elif config.type == VectorStore.NETWORKX:
-                # For NetworkX, we need a specific path for the graph storage
-                configuration_config = {
-                    'type': config.type,
-                    'index_path': f"{config.index_path}/networkx",
-                    'name': configuration_name  # Pass configuration name to NetworkX store
-                }
-                # NetworkX can optionally use embeddings for enhanced similarity
-                embedding_service = None
-                if embedding_config.get('enabled', False):
-                    embedding_service = EmbeddingService(embedding_config)
-                self.stores[configuration_name] = NetworkXGraphStore(configuration_config, embedding_service)
-                logger.info(f"Created NetworkX graph store for configuration {configuration_name}")
-            
             elif config.type == VectorStore.NEO4J:
-                # For Neo4j, pass through the connection parameters
+                # NEO4J vector store has been deprecated - use NEO4J_KNOWLEDGE_GRAPH instead
+                raise ValueError("NEO4J vector store type is deprecated. Use NEO4J_KNOWLEDGE_GRAPH instead.")
+            
+            elif config.type == VectorStore.NEO4J_KNOWLEDGE_GRAPH:
+                # For Neo4j Knowledge Graph, pass through the connection parameters and LLM config
                 configuration_config = {
                     'type': config.type,
                     'neo4j_uri': config.neo4j_uri,
                     'neo4j_user': config.neo4j_user,
                     'neo4j_password': config.neo4j_password,
                     'neo4j_database': config.neo4j_database,
-                    'name': configuration_name  # Pass configuration name for graph structure
+                    'name': configuration_name
                 }
-                # Neo4j can optionally use embeddings for vector similarity
-                embedding_service = None
-                if embedding_config.get('enabled', False):
-                    embedding_service = EmbeddingService(embedding_config)
-                self.stores[configuration_name] = Neo4jGraphStore(configuration_config, embedding_service)
-                logger.info(f"Created Neo4j graph store for configuration {configuration_name}")
+                # Knowledge graph requires LLM configuration for text-to-graph extraction
+                llm_config_name = config.kg_llm_config_name
+                if not llm_config_name:
+                    raise ValueError("kg_llm_config_name is required for NEO4J_KNOWLEDGE_GRAPH vector store type")
+                
+                self.stores[configuration_name] = Neo4jKnowledgeGraphAdapter(configuration_config, llm_config_name)
+                logger.info(f"Created Neo4j knowledge graph store for configuration {configuration_name} with LLM config {llm_config_name}")
                 
             else:
                 raise ValueError(f"Unsupported vector store type: {config.type}")

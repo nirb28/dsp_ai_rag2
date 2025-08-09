@@ -75,8 +75,7 @@ class VectorStore(str, Enum):
     FAISS = "faiss"
     REDIS = "redis"
     BM25 = "bm25"  # Keyword-based search using BM25 algorithm
-    NETWORKX = "networkx"  # Graph-based search using NetworkX
-    NEO4J = "neo4j"  # Graph-based search using Neo4j
+    NEO4J_KNOWLEDGE_GRAPH = "neo4j_knowledge_graph"  # True knowledge graph using LangGraph
 
 class EmbeddingModel(str, Enum):
     SENTENCE_TRANSFORMERS_ALL_MINILM = "sentence-transformers/all-MiniLM-L6-v2"
@@ -115,8 +114,9 @@ class VectorStoreConfig(BaseModel):
     index_path: str = Field(default="./storage/faiss_index", description="Path for FAISS index files")
     dimension: int = Field(default=384, ge=1, le=4096)
     # Redis specific settings
-    redis_host: str = Field(default="localhost", description="Redis server hostname")
-    redis_port: int = Field(default=6379, description="Redis server port")
+    redis_host: str = Field(default="csbxrdb-dev.ecnp.bankofamerica.com", description="Redis server hostname")
+    redis_port: int = Field(default=10000, description="Redis server port")
+    redis_username: Optional[str] = Field(default=None, description="Redis username if authentication is required")
     redis_password: Optional[str] = Field(default=None, description="Redis password if authentication is required")
     redis_index_name: str = Field(default="document-index", description="Redis search index name")
     # Neo4j specific settings
@@ -124,6 +124,8 @@ class VectorStoreConfig(BaseModel):
     neo4j_user: str = Field(default="neo4j", description="Neo4j username")
     neo4j_password: Optional[str] = Field(default=None, description="Neo4j password")
     neo4j_database: str = Field(default="neo4j", description="Neo4j database name")
+    # Knowledge graph specific settings
+    kg_llm_config_name: Optional[str] = Field(default=None, description="LLM configuration name for knowledge graph extraction")
 
 class EmbeddingConfig(BaseModel):
     model: Union[EmbeddingModel, str] = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM

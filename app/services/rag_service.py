@@ -576,6 +576,7 @@ class RAGService:
             self.embedding_services = {}
             self.generation_services = {}
             self.reranker_services = {}
+            self.vector_store_manager.stores = {}
             
             # Reload configurations from file
             self._load_configurations()
