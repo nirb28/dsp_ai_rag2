@@ -34,6 +34,7 @@ weaviate-client
 redis
 rank-bm25
 neo4j
+elasticsearch
 
 # Text processing and tokens
 tiktoken

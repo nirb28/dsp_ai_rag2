@@ -20,6 +20,7 @@ from app.services.embedding_service import EmbeddingService
 from app.services.base_vector_store import BaseVectorStore
 from app.services.bm25_store import BM25VectorStore
 from app.services.neo4j_kg_adapter import Neo4jKnowledgeGraphAdapter
+from app.services.elasticsearch_vector_store import ElasticsearchVectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -489,10 +490,6 @@ class VectorStoreManager:
                 self.stores[configuration_name] = BM25VectorStore(configuration_config, embedding_service)
                 logger.info(f"Created BM25 vector store for configuration {configuration_name}")
                 
-            elif config.type == VectorStore.NEO4J:
-                # NEO4J vector store has been deprecated - use NEO4J_KNOWLEDGE_GRAPH instead
-                raise ValueError("NEO4J vector store type is deprecated. Use NEO4J_KNOWLEDGE_GRAPH instead.")
-            
             elif config.type == VectorStore.NEO4J_KNOWLEDGE_GRAPH:
                 # For Neo4j Knowledge Graph, pass through the connection parameters and LLM config
                 configuration_config = {
@@ -510,6 +507,31 @@ class VectorStoreManager:
                 
                 self.stores[configuration_name] = Neo4jKnowledgeGraphAdapter(configuration_config, llm_config_name)
                 logger.info(f"Created Neo4j knowledge graph store for configuration {configuration_name} with LLM config {llm_config_name}")
+                
+            elif config.type == VectorStore.ELASTICSEARCH:
+                # For Elasticsearch, create configuration with connection parameters
+                # Determine index name based on suffix flag
+                if config.es_use_index_suffix:
+                    index_name = f"{config.es_index_name}-{configuration_name}"
+                else:
+                    index_name = config.es_index_name
+                
+                configuration_config = VectorStoreConfig(
+                    type=config.type,
+                    dimension=config.dimension,
+                    es_url=config.es_url,
+                    es_index_name=index_name,
+                    es_user=config.es_user,
+                    es_password=config.es_password,
+                    es_api_key=config.es_api_key,
+                    es_api_key_id=config.es_api_key_id,
+                    es_use_index_suffix=config.es_use_index_suffix,
+                    es_search_type=config.es_search_type,
+                    es_semantic_field=config.es_semantic_field
+                )
+                embedding_service = EmbeddingService(embedding_config)
+                self.stores[configuration_name] = ElasticsearchVectorStore(configuration_config, embedding_service)
+                logger.info(f"Created Elasticsearch vector store for configuration {configuration_name}")
                 
             else:
                 raise ValueError(f"Unsupported vector store type: {config.type}")

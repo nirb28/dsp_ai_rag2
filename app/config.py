@@ -76,6 +76,7 @@ class VectorStore(str, Enum):
     REDIS = "redis"
     BM25 = "bm25"  # Keyword-based search using BM25 algorithm
     NEO4J_KNOWLEDGE_GRAPH = "neo4j_knowledge_graph"  # True knowledge graph using LangGraph
+    ELASTICSEARCH = "elasticsearch"  # Elasticsearch vector store
 
 class EmbeddingModel(str, Enum):
     SENTENCE_TRANSFORMERS_ALL_MINILM = "sentence-transformers/all-MiniLM-L6-v2"
@@ -126,6 +127,16 @@ class VectorStoreConfig(BaseModel):
     neo4j_database: str = Field(default="neo4j", description="Neo4j database name")
     # Knowledge graph specific settings
     kg_llm_config_name: Optional[str] = Field(default=None, description="LLM configuration name for knowledge graph extraction")
+    # Elasticsearch specific settings
+    es_url: str = Field(default="http://localhost:9200", description="Elasticsearch server URL")
+    es_index_name: str = Field(default="documents", description="Elasticsearch index name")
+    es_user: Optional[str] = Field(default=None, description="Elasticsearch username")
+    es_password: Optional[str] = Field(default=None, description="Elasticsearch password")
+    es_api_key: Optional[str] = Field(default=None, description="Elasticsearch API key (alternative to username/password)")
+    es_api_key_id: Optional[str] = Field(default=None, description="Elasticsearch API key ID (optional, for key identification)")
+    es_use_index_suffix: bool = Field(default=True, description="Whether to append configuration name as suffix to index name")
+    es_search_type: str = Field(default="vector", description="Search type: fulltext, vector, semantic, or hybrid")
+    es_semantic_field: str = Field(default="ml.tokens", description="Field name for semantic search tokens (ELSER or custom)")
 
 class EmbeddingConfig(BaseModel):
     model: Union[EmbeddingModel, str] = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM
