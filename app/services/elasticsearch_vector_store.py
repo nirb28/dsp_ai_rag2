@@ -159,8 +159,9 @@ class ElasticsearchVectorStore(BaseVectorStore):
                                 "type": "dense_vector",
                                 "dims": self.embedding_service.get_dimension()
                             },
-                            "ml.tokens": {
-                                "type": "rank_features"
+                            self.config.es_semantic_field: {
+                                "type": "semantic_text",
+                                "inference_id": self.config.es_semantic_inference_id
                             },
                             "metadata": {
                                 "type": "object",
@@ -503,18 +504,17 @@ class ElasticsearchVectorStore(BaseVectorStore):
             List of tuples containing (document, similarity_score)
         """
         try:
-            # Build Elasticsearch ELSER semantic search query
-            # ELSER uses text_expansion query with ml.tokens field
+            # Build Elasticsearch semantic search query using modern syntax
+            # Use semantic query with content_vector field
             es_query = {
                 "query": {
                     "bool": {
                         "must": [
                             {
-                                "text_expansion": {
-                                    "ml.tokens": {
-                                        "model_id": ".elser_model_2",
-                                        "model_text": query
-                                    }
+                                "semantic": {
+                                    "field": self.config.es_semantic_field,
+                                    "query": query,
+                                    "boost": 1.0
                                 }
                             }
                         ]

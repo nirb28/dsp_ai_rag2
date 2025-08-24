@@ -136,7 +136,8 @@ class VectorStoreConfig(BaseModel):
     es_api_key_id: Optional[str] = Field(default=None, description="Elasticsearch API key ID (optional, for key identification)")
     es_use_index_suffix: bool = Field(default=True, description="Whether to append configuration name as suffix to index name")
     es_search_type: str = Field(default="vector", description="Search type: fulltext, vector, semantic, or hybrid")
-    es_semantic_field: str = Field(default="ml.tokens", description="Field name for semantic search tokens (ELSER or custom)")
+    es_semantic_field: str = Field(default="text", description="Field name for semantic search (content_vector or ml.tokens)")
+    es_semantic_inference_id: str = Field(default=".elser_model_2", description="Inference ID for semantic search model")
 
 class EmbeddingConfig(BaseModel):
     model: Union[EmbeddingModel, str] = EmbeddingModel.SENTENCE_TRANSFORMERS_ALL_MINILM
