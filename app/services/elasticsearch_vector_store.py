@@ -16,6 +16,7 @@ Features:
 - Hybrid search combining multiple search strategies
 """
 
+import json
 import logging
 import math
 from typing import List, Dict, Any, Tuple, Optional
@@ -38,6 +39,7 @@ class ElasticsearchSearchType(str, Enum):
     VECTOR = "vector"      # Embedding-based similarity search
     SEMANTIC = "semantic"  # Elasticsearch built-in semantic search with ELSER
     HYBRID = "hybrid"      # Combination of multiple search types
+    QUERY_DSL = "query_dsl"  # Custom Elasticsearch Query DSL template
 
 
 class EmbeddingServiceWrapper(Embeddings):
@@ -195,7 +197,8 @@ class ElasticsearchVectorStore(BaseVectorStore):
                 'fulltext': ElasticsearchSearchType.FULLTEXT,
                 'vector': ElasticsearchSearchType.VECTOR,
                 'semantic': ElasticsearchSearchType.SEMANTIC,
-                'hybrid': ElasticsearchSearchType.HYBRID
+                'hybrid': ElasticsearchSearchType.HYBRID,
+                'query_dsl': ElasticsearchSearchType.QUERY_DSL
             }
             
             default_type = search_type_map.get(search_type_str.lower(), ElasticsearchSearchType.VECTOR)
@@ -366,6 +369,8 @@ class ElasticsearchVectorStore(BaseVectorStore):
                 results = self._semantic_search(query, k, filter)
             elif search_type == ElasticsearchSearchType.HYBRID:
                 results = self._hybrid_search(query, k, filter)
+            elif search_type == ElasticsearchSearchType.QUERY_DSL:
+                results = self._query_dsl_search(query, k, filter)
             else:
                 # Default to vector search
                 results = self._vector_search(query, k, filter)
@@ -378,7 +383,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
             if self.config.normalize_similarity_scores:
                 results = self._normalize_scores(results, search_type)
             
-            logger.debug(f"{search_type} search returned {len(results)} results")
+            logger.debug(f"{search_type} search returned {len(results)} results. After applying similarity threshold {similarity_threshold}")
             return results[:k]
             
         except Exception as e:
@@ -570,6 +575,68 @@ class ElasticsearchVectorStore(BaseVectorStore):
         except Exception as e:
             logger.warning(f"Semantic search not available or configured: {str(e)}")
             # Fallback to fulltext search if semantic search is not available
+            return self._fulltext_search(query, k, filter)
+    
+    def _query_dsl_search(self, query: str, k: int, filter: Optional[Dict[str, Any]] = None) -> List[Tuple[LangchainDocument, float]]:
+        """
+        Perform search using custom Elasticsearch Query DSL template.
+        
+        Args:
+            query: Search query string
+            k: Number of results to return
+            filter: MongoDB-style metadata filter (optional)
+            
+        Returns:
+            List of tuples containing (document, similarity_score)
+        """
+        try:
+            if not self.config.es_query_dsl_template:
+                logger.error("Query DSL template not configured - falling back to fulltext search")
+                return self._fulltext_search(query, k, filter)
+            
+            # Deep copy the template to avoid modifying the original
+            import copy
+            es_query = copy.deepcopy(self.config.es_query_dsl_template)
+            
+            # Replace $QUERY$ placeholder with actual query string
+            es_query_str = json.dumps(es_query)
+            es_query_str = es_query_str.replace("$QUERY$", query)
+            es_query = json.loads(es_query_str)
+
+            # Add filter if provided (this is more complex for custom DSL)
+            if filter:
+                logger.warning("Metadata filtering with custom Query DSL is not fully supported - filter may be ignored")
+                # For custom DSL, we can't easily inject filters without knowing the structure
+                # Users should include filtering in their DSL template if needed
+            
+            logger.debug(f"Executing custom Query DSL: {json.dumps(es_query, indent=2)}")
+            print(
+                f"***** Performing fulltext search for query: '{es_query}'")
+
+            # Execute search with custom DSL
+            response = self.es_client.search(
+                index=self.config.es_index_name,
+                body=es_query,
+                size=k
+            )
+            
+            # Process results
+            results = []
+            for hit in response['hits']['hits']:
+                doc = LangchainDocument(
+                    page_content=self._extract_document_content(hit['_source']),
+                    metadata=hit['_source'].get('metadata', {})
+                )
+                score = hit['_score']
+                results.append((doc, score))
+            
+            logger.debug(f"Query DSL search returned {len(results)} results")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error performing Query DSL search: {str(e)}")
+            # Fallback to fulltext search if Query DSL fails
+            logger.info("Falling back to fulltext search")
             return self._fulltext_search(query, k, filter)
     
     def _hybrid_search(self, query: str, k: int, filter: Optional[Dict[str, Any]] = None) -> List[Tuple[LangchainDocument, float]]:

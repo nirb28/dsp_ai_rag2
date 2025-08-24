@@ -135,10 +135,11 @@ class VectorStoreConfig(BaseModel):
     es_api_key: Optional[str] = Field(default=None, description="Elasticsearch API key (alternative to username/password)")
     es_api_key_id: Optional[str] = Field(default=None, description="Elasticsearch API key ID (optional, for key identification)")
     es_use_index_suffix: bool = Field(default=True, description="Whether to append configuration name as suffix to index name")
-    es_search_type: str = Field(default="vector", description="Search type: fulltext, vector, semantic, or hybrid")
+    es_search_type: str = Field(default="vector", description="Search type: fulltext, vector, semantic, hybrid, or query_dsl")
     es_fulltext_field: str = Field(default="content", description="Field name for fulltext/BM25 search")
     es_semantic_field: str = Field(default="text", description="Field name for semantic search (content_vector or ml.tokens)")
     es_semantic_inference_id: str = Field(default=".elser_model_2", description="Inference ID for semantic search model")
+    es_query_dsl_template: Optional[Dict[str, Any]] = Field(default=None, description="Custom Elasticsearch Query DSL template with $QUERY$ placeholder")
     # Score normalization setting
     normalize_similarity_scores: bool = Field(default=False, description="Whether to normalize similarity scores to 0-1 range")
 
