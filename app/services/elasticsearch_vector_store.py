@@ -107,7 +107,11 @@ class ElasticsearchVectorStore(BaseVectorStore):
         es_config = {
             'hosts': [self.config.es_url],
             'verify_certs': True,
-            'ssl_show_warn': False
+            'ssl_show_warn': False,
+            # Fix version compatibility issue
+            'headers': {
+                'Accept': 'application/vnd.elasticsearch+json; compatible-with=8'
+            }
         }
         
         # Configure authentication
