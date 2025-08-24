@@ -151,7 +151,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
                 mapping = {
                     "mappings": {
                         "properties": {
-                            "content": {
+                            self.config.es_fulltext_field: {
                                 "type": "text",
                                 "analyzer": "standard"
                             },
@@ -374,8 +374,9 @@ class ElasticsearchVectorStore(BaseVectorStore):
             if similarity_threshold is not None:
                 results = [(doc, score) for doc, score in results if score >= similarity_threshold]
             
-            # Normalize scores to 0-1 range
-            results = self._normalize_scores(results, search_type)
+            # Conditionally normalize scores to 0-1 range based on config
+            if self.config.normalize_similarity_scores:
+                results = self._normalize_scores(results, search_type)
             
             logger.debug(f"{search_type} search returned {len(results)} results")
             return results[:k]
@@ -433,7 +434,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
                         "must": [
                             {
                                 "match": {
-                                    "content": {
+                                    self.config.es_fulltext_field: {
                                         "query": query,
                                         "operator": "or"
                                     }
@@ -449,7 +450,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
                 es_filter = self._convert_filter_to_elasticsearch(filter)
                 if es_filter:
                     es_query["query"]["bool"]["filter"] = [es_filter]
-            
+            print(f"***** Performing fulltext search for query: '{es_query}' with field={self.config.es_fulltext_field}")
             # Execute search
             response = self.es_client.search(
                 index=self.config.es_index_name,
@@ -467,8 +468,6 @@ class ElasticsearchVectorStore(BaseVectorStore):
                 score = hit['_score']
                 results.append((doc, score))
             
-            # Normalize scores for fulltext search
-            results = self._normalize_scores(results, ElasticsearchSearchType.FULLTEXT)
             return results
             
         except Exception as e:
@@ -506,8 +505,6 @@ class ElasticsearchVectorStore(BaseVectorStore):
                 if len(filtered_results) >= k:
                     break
             
-            # Normalize scores for vector search
-            filtered_results = self._normalize_scores(filtered_results, ElasticsearchSearchType.VECTOR)
             return filtered_results
             
         except Exception as e:
@@ -568,8 +565,6 @@ class ElasticsearchVectorStore(BaseVectorStore):
                 score = hit['_score']
                 results.append((doc, score))
             
-            # Normalize scores for semantic search
-            results = self._normalize_scores(results, ElasticsearchSearchType.SEMANTIC)
             return results
             
         except Exception as e:
@@ -624,9 +619,6 @@ class ElasticsearchVectorStore(BaseVectorStore):
             
             # Sort by combined score and return top k
             sorted_results = sorted(combined_results.values(), key=lambda x: x[1], reverse=True)
-            
-            # Normalize scores for hybrid search
-            sorted_results = self._normalize_scores(sorted_results, ElasticsearchSearchType.HYBRID)
             return sorted_results[:k]
             
         except Exception as e:

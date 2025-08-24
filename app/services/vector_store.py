@@ -527,7 +527,10 @@ class VectorStoreManager:
                     es_api_key_id=config.es_api_key_id,
                     es_use_index_suffix=config.es_use_index_suffix,
                     es_search_type=config.es_search_type,
-                    es_semantic_field=config.es_semantic_field
+                    es_fulltext_field=config.es_fulltext_field,
+                    es_semantic_field=config.es_semantic_field,
+                    es_semantic_inference_id=config.es_semantic_inference_id,
+                    normalize_similarity_scores=config.normalize_similarity_scores
                 )
                 embedding_service = EmbeddingService(embedding_config)
                 self.stores[configuration_name] = ElasticsearchVectorStore(configuration_config, embedding_service)
