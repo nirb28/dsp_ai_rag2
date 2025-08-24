@@ -151,7 +151,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
                 mapping = {
                     "mappings": {
                         "properties": {
-                            "text": {
+                            "content": {
                                 "type": "text",
                                 "analyzer": "standard"
                             },
@@ -410,7 +410,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
                         "must": [
                             {
                                 "match": {
-                                    "text": {
+                                    "content": {
                                         "query": query,
                                         "operator": "or"
                                     }
@@ -438,7 +438,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
             results = []
             for hit in response['hits']['hits']:
                 doc = LangchainDocument(
-                    page_content=hit['_source'].get('text', ''),
+                    page_content=hit['_source'].get('content', ''),
                     metadata=hit['_source'].get('metadata', {})
                 )
                 score = hit['_score']
@@ -539,7 +539,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
             results = []
             for hit in response['hits']['hits']:
                 doc = LangchainDocument(
-                    page_content=hit['_source'].get('text', ''),
+                    page_content=hit['_source'].get('content', ''),
                     metadata=hit['_source'].get('metadata', {})
                 )
                 score = hit['_score']
