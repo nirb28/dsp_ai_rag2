@@ -283,6 +283,29 @@ class ElasticsearchVectorStore(BaseVectorStore):
             # Default: clamp to 0-1 range
             return [(doc, max(0.0, min(1.0, score))) for doc, score in results]
 
+    def _extract_document_content(self, hit_source: Dict[str, Any]) -> str:
+        """
+        Extract document content from Elasticsearch hit source with field fallback.
+        
+        Checks multiple possible field names to ensure consistent output regardless
+        of how the document was indexed.
+        
+        Args:
+            hit_source: The _source field from an Elasticsearch hit
+            
+        Returns:
+            Document content string
+        """
+        # List of possible field names in order of preference
+        content_fields = ['content', 'text', 'page_content', 'body', 'document']
+        
+        for field in content_fields:
+            if field in hit_source and hit_source[field]:
+                return hit_source[field]
+        
+        # If no content field found, return empty string
+        return ''
+
     def add_documents(self, documents: List[LangchainDocument]) -> List[str]:
         """
         Add documents to the Elasticsearch vector store.
@@ -438,7 +461,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
             results = []
             for hit in response['hits']['hits']:
                 doc = LangchainDocument(
-                    page_content=hit['_source'].get('content', ''),
+                    page_content=self._extract_document_content(hit['_source']),
                     metadata=hit['_source'].get('metadata', {})
                 )
                 score = hit['_score']
@@ -539,7 +562,7 @@ class ElasticsearchVectorStore(BaseVectorStore):
             results = []
             for hit in response['hits']['hits']:
                 doc = LangchainDocument(
-                    page_content=hit['_source'].get('content', ''),
+                    page_content=self._extract_document_content(hit['_source']),
                     metadata=hit['_source'].get('metadata', {})
                 )
                 score = hit['_score']
