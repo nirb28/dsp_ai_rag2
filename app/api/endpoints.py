@@ -9,7 +9,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Q
 from fastapi.responses import JSONResponse
 from fastapi import Body
 import logging
-
+from langchain.docstore.document import Document as LangchainDocument
 # Import the documentation router
 from app.api.documentation import router as documentation_router
 
@@ -25,7 +25,7 @@ from app.model_schemas import (
 )
 from app.config import RAGConfig, LLMConfig, LLMProvider, settings
 from app.services.rag_service import RAGService
-from app.services.vector_store import VectorStoreManager, FAISSVectorStore
+from app.services.vector_store import VectorStoreManager, FAISSVectorStore, RedisVectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,34 @@ if not hasattr(FAISSVectorStore, 'get_all_documents'):
         return self.documents[:limit]
         
     FAISSVectorStore.get_all_documents = get_all_documents
+
+# Add method to RedisVectorStore to get all documents
+if not hasattr(RedisVectorStore, 'get_all_documents'):
+    def get_all_documents(self, limit: int = 10) -> List[LangchainDocument]:
+      try:
+        cursor = 0
+        documents = []
+        #prefix = f"doc:{self.index_name}:*"  # Use configuration-specific prefix
+        prefix = f"doc:{{{self.index_name}}}:*"
+        while True:
+            cursor, keys = self.redis_client.scan(cursor, match=prefix, count=limit)
+            for key in keys:
+                doc_data = self.redis_client.hgetall(key)
+                if not doc_data:
+                    continue
+                content = doc_data.get(b"content", b"").decode("utf-8")
+                metadata = json.loads(doc_data.get(b"metadata", b"{}").decode("utf-8"))
+                langchain_doc = LangchainDocument(page_content=content, metadata=metadata)
+                documents.append(langchain_doc)
+                if len(documents) >= limit:               
+                    return documents
+            if cursor == 0:
+                break
+        return documents
+      except Exception as e:
+        logger.error(f"Error retrieving documents from Redis: {str(e)}")
+        raise
+    RedisVectorStore.get_all_documents = get_all_documents
 
 router = APIRouter()
 

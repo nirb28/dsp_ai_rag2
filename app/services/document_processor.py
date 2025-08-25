@@ -10,7 +10,7 @@ from langchain.text_splitter import (
     SentenceTransformersTokenTextSplitter
 )
 from langchain.docstore.document import Document as LangchainDocument
-
+import fitz
 import pypdf
 from docx import Document as DocxDocument
 from pptx import Presentation
@@ -43,13 +43,33 @@ class DocumentProcessor:
             raise
 
     def _extract_pdf(self, file_path: str) -> str:
-        """Extract text from PDF files."""
-        text = ""
-        with open(file_path, 'rb') as file:
-            pdf_reader = pypdf.PdfReader(file)
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-        return text.strip()
+      """Extract text from PDF files, preserving structure and links."""
+      structured_content = []
+      pdf_document = fitz.open(file_path)
+      for page_num in range(len(pdf_document)):
+        page = pdf_document[page_num]
+        blocks = page.get_text("dict")["blocks"]  # Extract text blocks with structure
+        for block in blocks:
+            if "lines" in block:
+                for line in block["lines"]:
+                    line_text = ""
+                    link_uri = None  # Track the link for this line, if any
+                    for span in line["spans"]:
+                        span_text = span["text"]
+                        line_text += span_text
+                        # Check if the span overlaps with any link
+                        for link in page.get_links():
+                            if "uri" in link:
+                                link_rect = fitz.Rect(link["from"])
+                                span_rect = fitz.Rect(span["bbox"])
+                                if span_rect.intersects(link_rect):
+                                    link_uri = link["uri"]  # Store the link URI
+                    # Add the line text to the structured content
+                    structured_content.append(line_text)
+                    # Add the link (if any) after the line text
+                    if link_uri:
+                        structured_content.append(link_uri)
+      return "\n".join(structured_content).strip()
 
     def _extract_txt(self, file_path: str) -> str:
         """Extract text from TXT files."""

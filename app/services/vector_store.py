@@ -7,7 +7,8 @@ from pathlib import Path
 import numpy as np
 import uuid
 from enum import Enum
-
+from dotenv import load_dotenv
+import datetime
 import faiss
 import redis
 from redis.commands.search.field import TextField, VectorField
@@ -24,6 +25,8 @@ from app.services.elasticsearch_vector_store import ElasticsearchVectorStore
 
 logger = logging.getLogger(__name__)
 
+redisdb_username = ""
+redisdb_password = ""
 
 class FAISSVectorStore(BaseVectorStore):
     def __init__(self, config: VectorStoreConfig, embedding_service: EmbeddingService):
@@ -80,7 +83,11 @@ class FAISSVectorStore(BaseVectorStore):
             # Extract texts and metadata
             texts = [doc.page_content for doc in documents]
             doc_metadata = [doc.metadata for doc in documents]
-            
+            # Add timestamp to metadata
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            for metadata in doc_metadata:
+                metadata["timestamp"] = timestamp            
+
             # Generate embeddings
             embeddings = self.embedding_service.embed_texts(texts)
             embeddings_array = np.array(embeddings, dtype=np.float32)
@@ -227,14 +234,15 @@ class RedisVectorStore(BaseVectorStore):
         """Initialize Redis client and create index if it doesn't exist."""
         try:
             # Connect to Redis using configuration
-            redis_url = f"redis://{':' + self.config.redis_password + '@' if self.config.redis_password else ''}{self.config.redis_host}:{self.config.redis_port}"
-            
-            # Use environment variable if available
-            if os.environ.get("REDIS_URL"):
-                redis_url = os.environ.get("REDIS_URL")
-                
-            self.redis_client = redis.from_url(redis_url)
-            
+            self.redis_client = redis.Redis(
+                host=self.config.redis_host,
+                port=self.config.redis_port,
+                username=redisdb_username,  # Include username
+                password=redisdb_password,
+                ssl=True,
+                ssl_cert_reqs=None
+            )
+
             # Check if the index already exists
             existing_indices = self.redis_client.execute_command("FT._LIST")
             
@@ -258,7 +266,7 @@ class RedisVectorStore(BaseVectorStore):
                 # Create the index
                 self.redis_client.ft(self.index_name).create_index(
                     [text_field, metadata_field, filename_field, doc_id_field, vector_field],
-                    definition=IndexDefinition(prefix=["doc:"], index_type=IndexType.HASH)
+                    definition=IndexDefinition(prefix=[f"doc:{{{self.index_name}}}:"], index_type=IndexType.HASH)
                 )
                 logger.info(f"Created new Redis index: {self.index_name}")
             else:
@@ -277,7 +285,11 @@ class RedisVectorStore(BaseVectorStore):
             # Extract texts and metadata
             texts = [doc.page_content for doc in documents]
             doc_metadata = [doc.metadata for doc in documents]
-            
+            # Add timestamp to metadata
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            for metadata in doc_metadata:
+                metadata["timestamp"] = timestamp
+
             # Generate embeddings
             embeddings = self.embedding_service.embed_texts(texts)
             
@@ -287,8 +299,8 @@ class RedisVectorStore(BaseVectorStore):
             
             # Insert each document
             for i, (doc, metadata, embedding) in enumerate(zip(documents, doc_metadata, embeddings)):
-                # Generate a unique ID
-                doc_id = f"doc:{str(uuid.uuid4())}"
+                unique_id = str(uuid.uuid4())  # <-- This is where unique_id is defined
+                doc_id = f"doc:{{{self.index_name}}}:{unique_id}"  # Use hash tag for consistent slot hashing
                 doc_ids.append(doc_id)
                 
                 # Convert metadata to JSON string
@@ -302,7 +314,7 @@ class RedisVectorStore(BaseVectorStore):
                         "content": doc.page_content,
                         "metadata": metadata_json,
                         "filename": filename,
-                        "doc_id": doc_id.replace("doc:", ""),
+                        "doc_id": unique_id,
                         self.vector_field_name: np.array(embedding, dtype=np.float32).tobytes()
                     }
                 )
@@ -468,6 +480,7 @@ class VectorStoreManager:
                     dimension=config.dimension,
                     redis_host=config.redis_host,
                     redis_port=config.redis_port,
+                    redis_username=config.redis_username,
                     redis_password=config.redis_password,
                     # Use configuration name in the index name
                     redis_index_name=f"{config.redis_index_name}-{configuration_name}"
@@ -515,14 +528,17 @@ class VectorStoreManager:
                     index_name = f"{config.es_index_name}-{configuration_name}"
                 else:
                     index_name = config.es_index_name
-                
+
+                load_dotenv()
+                if os.environ.get("Elastic_Password"):
+                    elastic_password = os.environ.get("Elastic_Password")                 
                 configuration_config = VectorStoreConfig(
                     type=config.type,
                     dimension=config.dimension,
                     es_url=config.es_url,
                     es_index_name=index_name,
                     es_user=config.es_user,
-                    es_password=config.es_password,
+                    es_password=elastic_password,
                     es_api_key=config.es_api_key,
                     es_api_key_id=config.es_api_key_id,
                     es_use_index_suffix=config.es_use_index_suffix,
