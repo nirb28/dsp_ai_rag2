@@ -13,15 +13,34 @@ from langchain.docstore.document import Document as LangchainDocument
 # Import the documentation router
 from app.api.documentation import router as documentation_router
 
-from app.model_schemas import (
-    DocumentUploadResponse, QueryRequest, QueryResponse, 
-    ConfigurationRequest, ConfigurationResponse, HealthResponse,
-    ErrorResponse, ConfigurationsResponse, ConfigurationInfo,
-    ConfigurationNamesResponse, RetrieveRequest, RetrieveResponse,
-    TextDocumentsUploadRequest, TextDocumentsUploadResponse,
-    DuplicateConfigurationRequest, DuplicateConfigurationResponse,
-    DeleteConfigurationResponse, LLMConfigRequest, LLMConfigResponse,
-    LLMConfigListResponse
+from app.model_schemas.base_models import (
+    DocumentUploadRequest,
+    DocumentUploadResponse,
+    RetrieveRequest, 
+    RetrieveResponse, 
+    QueryRequest, 
+    QueryResponse, 
+    ConfigurationNamesResponse,
+    ConfigurationRequest,
+    ConfigurationResponse,
+    ConfigurationsResponse,
+    DuplicateConfigurationRequest,
+    DuplicateConfigurationResponse,
+    TextDocumentsUploadRequest,
+    TextDocumentsUploadResponse,
+    LLMConfigRequest,
+    LLMConfigResponse,
+    LLMConfigListResponse,
+    MCPServerStatusResponse,
+    MCPServerListResponse,
+    MCPToolExecutionRequest,
+    MCPToolExecutionResponse,
+    MCPServerStartRequest,
+    MCPServerStopRequest,
+    MCPServerStartStopResponse,
+    DeleteConfigurationResponse,
+    HealthResponse,
+    ErrorResponse
 )
 from app.config import RAGConfig, LLMConfig, LLMProvider, settings
 from app.services.rag_service import RAGService
@@ -1414,3 +1433,125 @@ async def reload_configurations():
     except Exception as e:
         logger.error(f"Error reloading configurations: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+# MCP Server Management Endpoints
+@router.get("/mcp-servers", response_model=MCPServerListResponse)
+async def list_mcp_servers():
+    """List all MCP servers and their current status."""
+    try:
+        servers = rag_service.mcp_server_manager.list_servers()
+        return MCPServerListResponse(
+            servers=[MCPServerStatusResponse(**server) for server in servers],
+            total_count=len(servers)
+        )
+    except Exception as e:
+        logger.error(f"Error listing MCP servers: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing MCP servers: {str(e)}")
+
+
+@router.get("/mcp-servers/{configuration_name}", response_model=MCPServerStatusResponse)
+async def get_mcp_server_status(configuration_name: str):
+    """Get the status of a specific MCP server."""
+    try:
+        status = rag_service.mcp_server_manager.get_server_status(configuration_name)
+        return MCPServerStatusResponse(**status)
+    except Exception as e:
+        logger.error(f"Error getting MCP server status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting server status: {str(e)}")
+
+
+@router.post("/mcp-servers/start", response_model=MCPServerStartStopResponse)
+async def start_mcp_server(request: MCPServerStartRequest):
+    """Start an MCP server for a configuration."""
+    try:
+        result = await rag_service.mcp_server_manager.start_server(
+            configuration_name=request.configuration_name,
+            force_restart=request.force_restart
+        )
+        
+        return MCPServerStartStopResponse(
+            configuration_name=request.configuration_name,
+            action="started",
+            success=result["success"],
+            message=result["message"],
+            endpoints=result.get("endpoints")
+        )
+    except Exception as e:
+        logger.error(f"Error starting MCP server: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error starting MCP server: {str(e)}")
+
+
+@router.post("/mcp-servers/stop", response_model=MCPServerStartStopResponse)
+async def stop_mcp_server(request: MCPServerStopRequest):
+    """Stop an MCP server for a configuration."""
+    try:
+        result = await rag_service.mcp_server_manager.stop_server(request.configuration_name)
+        
+        return MCPServerStartStopResponse(
+            configuration_name=request.configuration_name,
+            action="stopped",
+            success=result["success"],
+            message=result["message"]
+        )
+    except Exception as e:
+        logger.error(f"Error stopping MCP server: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error stopping MCP server: {str(e)}")
+
+
+@router.post("/mcp-servers/{configuration_name}/tools/execute", response_model=MCPToolExecutionResponse)
+async def execute_mcp_tool(configuration_name: str, request: MCPToolExecutionRequest):
+    """Execute an MCP tool for a specific configuration."""
+    try:
+        start_time = time.time()
+        
+        # Check if server exists and is running
+        if configuration_name not in rag_service.mcp_server_manager.servers:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"MCP server not found for configuration '{configuration_name}'"
+            )
+        
+        server = rag_service.mcp_server_manager.servers[configuration_name]
+        if not server.is_running:
+            raise HTTPException(
+                status_code=503,
+                detail=f"MCP server for configuration '{configuration_name}' is not running"
+            )
+        
+        # Execute tool
+        result = await server._execute_tool(request.tool_name, request.parameters)
+        execution_time = time.time() - start_time
+        
+        # Check if result indicates error
+        success = not result.get("isError", False)
+        error_message = None
+        if not success and result.get("content"):
+            # Extract error message from content
+            content = result["content"][0] if result["content"] else {}
+            error_message = content.get("text", "Unknown error")
+        
+        return MCPToolExecutionResponse(
+            tool_name=request.tool_name,
+            result=result,
+            execution_time=execution_time,
+            success=success,
+            error_message=error_message
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error executing MCP tool: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error executing MCP tool: {str(e)}")
+
+
+@router.post("/mcp-servers/shutdown-all")
+async def shutdown_all_mcp_servers():
+    """Shutdown all running MCP servers."""
+    try:
+        await rag_service.mcp_server_manager.shutdown_all()
+        return {"message": "All MCP servers have been shut down", "status": "success"}
+    except Exception as e:
+        logger.error(f"Error shutting down MCP servers: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error shutting down servers: {str(e)}")

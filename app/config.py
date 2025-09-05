@@ -230,6 +230,70 @@ class LLMConfig(BaseModel):
             raise ValueError(f"Invalid provider: {self.provider}. Must be one of: {', '.join([p.value for p in LLMProvider])}")
         return self
 
+class MCPProtocol(str, Enum):
+    """Available MCP server protocols."""
+    HTTP = "http"  # HTTP JSON-RPC
+    SSE = "sse"  # Server-Sent Events
+    STDIO = "stdio"  # Standard Input/Output
+
+class MCPToolType(str, Enum):
+    """Available MCP tool types."""
+    RETRIEVE = "retrieve"  # Document retrieval tool
+
+class MCPToolConfig(BaseModel):
+    """Configuration for individual MCP tools."""
+    type: MCPToolType = Field(..., description="Type of the MCP tool")
+    enabled: bool = Field(default=True, description="Whether this tool is enabled")
+    name: str = Field(..., description="Tool name exposed to MCP clients")
+    description: str = Field(..., description="Tool description for LLMs")
+    parameters_schema: Optional[Dict[str, Any]] = Field(default=None, description="Custom JSON schema for tool parameters")
+    max_results: int = Field(default=10, ge=1, le=100, description="Maximum number of results to return")
+    include_metadata: bool = Field(default=True, description="Whether to include document metadata in results")
+    
+class MCPServerConfig(BaseModel):
+    """Configuration for MCP server settings."""
+    enabled: bool = Field(default=False, description="Whether to enable MCP server for this configuration")
+    name: str = Field(..., description="Human-readable name for this MCP server instance")
+    description: str = Field(default="RAG document retrieval server", description="Description of the MCP server")
+    
+    # Protocol settings
+    protocols: List[MCPProtocol] = Field(default=[MCPProtocol.HTTP], description="Enabled MCP protocols")
+    http_host: str = Field(default="localhost", description="HTTP server host")
+    http_port: int = Field(default=8080, ge=1024, le=65535, description="HTTP server port")
+    sse_path: str = Field(default="/sse", description="SSE endpoint path")
+    
+    # Tool configuration
+    tools: List[MCPToolConfig] = Field(default_factory=list, description="Available MCP tools")
+    
+    # Server metadata
+    version: str = Field(default="1.0.0", description="MCP server version")
+    author: str = Field(default="DSP AI RAG", description="Server author")
+    license: Optional[str] = Field(default="MIT", description="Server license")
+    
+    # Security inheritance
+    inherit_security: bool = Field(default=True, description="Whether to inherit security settings from RAG configuration")
+    
+    @model_validator(mode='after')
+    def validate_protocols(self):
+        """Ensure at least one protocol is enabled."""
+        if not self.protocols or len(self.protocols) == 0:
+            raise ValueError("At least one MCP protocol must be enabled")
+        return self
+    
+    @model_validator(mode='after') 
+    def validate_tools(self):
+        """Ensure at least one tool is configured."""
+        if not self.tools or len(self.tools) == 0:
+            # Set default tools if none specified
+            self.tools = [
+                MCPToolConfig(
+                    type=MCPToolType.RETRIEVE,
+                    name="retrieve_documents",
+                    description="Retrieve relevant documents based on a query"
+                )
+            ]
+        return self
+
 class SecurityType(str, Enum):
     """Available security authentication types."""
     JWT_BEARER = "jwt_bearer"  # JWT Bearer token authentication
@@ -288,6 +352,7 @@ class RAGConfig(BaseModel):
     # New features
     reranking: Optional[RerankerConfig] = Field(default_factory=RerankerConfig)
     security: Optional[SecurityConfig] = Field(default_factory=SecurityConfig)
+    mcp_server: Optional[MCPServerConfig] = Field(default=None, description="MCP server configuration")
 
 class Settings:
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
