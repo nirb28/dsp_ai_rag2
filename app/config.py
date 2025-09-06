@@ -253,6 +253,7 @@ class MCPToolConfig(BaseModel):
 class MCPServerConfig(BaseModel):
     """Configuration for MCP server settings."""
     enabled: bool = Field(default=False, description="Whether to enable MCP server for this configuration")
+    startup_enabled: bool = Field(default=False, description="Whether to automatically start MCP server when configuration is loaded")
     name: str = Field(..., description="Human-readable name for this MCP server instance")
     description: str = Field(default="RAG document retrieval server", description="Description of the MCP server")
     

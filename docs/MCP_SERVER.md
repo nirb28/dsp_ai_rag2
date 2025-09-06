@@ -4,14 +4,6 @@
 
 The DSP AI RAG2 project includes comprehensive Model Context Protocol (MCP) server integration that allows LLM clients (Claude, Cursor, etc.) to directly access RAG functionality through standard MCP protocols. This implementation enables each RAG configuration to optionally expose an MCP server with configurable tools and protocols.
 
-
-### Core Components
-
-1. **MCPServerManager**: Manages all MCP configurations using a single shared FastAPI server with path-based routing
-2. **Single Port Architecture**: All configurations served on one port with paths like `/{config_name}/mcp`
-3. **MCPServerConfig**: Configuration model for MCP server settings
-4. **MCPToolConfig**: Configuration model for individual MCP tools
-
 ### Single-Port Design Benefits
 
 - **Simplified Port Management**: Only one port (8080) to configure and manage
@@ -53,93 +45,39 @@ Add the `mcp_server` section to your RAG configuration:
 ```
 
 ### Connection Endpoints
+### MCP Server (localhost:8080)
+- `GET /info` - Server information
+- `GET /mcp-servers` - List all MCP servers
+- `GET /mcp-servers/{config}` - Get specific server status
+- `POST /mcp-servers/start` - Start MCP server
+- `POST /mcp-servers/stop` - Stop MCP server
+- `POST /mcp-servers/{config}/tools/execute` - Execute MCP tool
+- `POST /mcp-servers/shutdown-all` - Shutdown all servers
 
-The MCP server hub runs on a single port (default: 8080) and serves all configurations via path-based routing:
+## Configuration
 
-- **MCP Server Hub**: `http://localhost:8080/`
-- **Configuration Endpoints**: `http://localhost:8080/{config_name}/mcp`
-- **Server-Sent Events**: `http://localhost:8080/{config_name}/sse`
-- **WebSocket**: `ws://localhost:8080/{config_name}/ws`
-- **Configuration Info**: `http://localhost:8080/{config_name}/info`
+MCP servers are configured in the RAG configuration with the `mcp_server` section:
 
-### Hub-Level Endpoints
-
-- **Hub Status**: `http://localhost:8080/`
-- **Health Check**: `http://localhost:8080/health`
-- **Hub Information**: `http://localhost:8080/mcp-hub/status` (via REST API)
-
-## API Endpoints
-
-### MCP Server Hub Management
-
-#### Get Hub Status
-```http
-GET /mcp-hub/status
-```
-
-Response:
 ```json
 {
-  "running": true,
-  "port": 8080,
-  "host": "localhost",
-  "active_configurations": ["config1", "config2"],
-  "total_configurations": 2,
-  "hub_url": "http://localhost:8080"
-}
-```
-
-#### List All MCP Servers
-```http
-GET /mcp-servers
-```
-
-Response:
-```json
-{
-  "servers": [
-    {
-      "configuration_name": "default",
-      "enabled": true,
-      "running": true,
-      "protocols": ["http", "sse"],
-      "endpoints": {
-        "http": "http://localhost:8080/default/mcp",
-        "sse": "http://localhost:8080/default/sse",
-        "websocket": "ws://localhost:8080/default/ws",
-        "info": "http://localhost:8080/default/info"
+  "mcp_server": {
+    "enabled": true,
+    "startup_enabled": true,
+    "protocols": ["http", "sse"],
+    "tools": {
+      "retrieve_documents": {
+        "enabled": true,
+        "max_results": 10
       },
-      "tools": [...],
-      "client_count": 0,
-      "uptime_seconds": 3600.5,
-      "message": "Running"
+      "search_documents": {
+        "enabled": true,
+        "max_results": 20
+      }
     }
-  ],
-  "total_count": 1
+  }
 }
 ```
 
-#### Start MCP Configuration
-```http
-POST /mcp-servers/start
-```
-
-Request:
-```json
-{
-  "configuration_name": "default",
-  "force_restart": false
-}
-```
-
-**Note**: Starting a configuration adds it to the shared MCP server hub. The hub starts automatically when the first configuration is added.
-
-#### Execute MCP Tool
-```http
-POST /mcp-servers/{configuration_name}/tools/execute
-```
-
-## MCP Protocol Usage
 
 ### Connection Endpoints
 

@@ -27,16 +27,10 @@ class RAGService:
         self.reranker_services: Dict[str, RerankerService] = {}
         self.llm_configurations: Dict[str, LLMConfig] = {}
         self.query_expansion_service = QueryExpansionService()
-        self._mcp_server_manager = None
         self._load_configurations()
         self._load_llm_configurations()
+        # Note: MCP servers are now handled by the separate MCP server application
 
-    @property
-    def mcp_server_manager(self):
-        if self._mcp_server_manager is None:
-            from app.services.mcp.server import MCPServerManager
-            self._mcp_server_manager = MCPServerManager(self)
-        return self._mcp_server_manager
 
     def _load_configurations(self):
         """Load configurations from storage."""
@@ -581,8 +575,6 @@ class RAGService:
             self.configurations = {}
             
             # Clear vector store manager cache
-            if hasattr(self, '_mcp_server_manager') and self._mcp_server_manager:
-                self._mcp_server_manager.stores = {}
             
             # Reload configurations from file
             self._load_configurations()
