@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional, Set
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.routing import APIRouter
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from contextlib import asynccontextmanager
 import threading
@@ -15,49 +16,56 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.config import MCPProtocol, MCPToolType, MCPServerConfig, MCPToolConfig
 from app.services.rag_service import RAGService
-from app.model_schemas.base_models import RetrieveRequest
+from app.model_schemas.base_models import RetrieveRequest, QueryRequest
 
 logger = logging.getLogger(__name__)
 
 
 class MCPServerManager:
-    """Manager for MCP servers across different configurations."""
+    """Manager for MCP servers across different configurations using single port with path-based routing."""
     
     def __init__(self, rag_service: RAGService):
         self.rag_service = rag_service
-        self.servers: Dict[str, 'MCPServer'] = {}
-        self.server_threads: Dict[str, threading.Thread] = {}
-        self._executor = ThreadPoolExecutor(max_workers=10)
+        self.configurations: Dict[str, MCPServerConfig] = {}
+        self.client_connections: Dict[str, Set[WebSocket]] = {}
+        self._app: Optional[FastAPI] = None
+        self._server_task: Optional[asyncio.Task] = None
+        self._is_running = False
+        self._base_port = 8080
+        self._base_host = "localhost"
+        self._start_time: Optional[datetime] = None
         
     async def start_server(self, configuration_name: str, force_restart: bool = False) -> Dict[str, Any]:
-        """Start MCP server for a configuration."""
+        """Start MCP server for a configuration (adds to shared server)."""
         try:
             # Get RAG configuration
             rag_config = self.rag_service.get_configuration(configuration_name)
             if not rag_config.mcp_server or not rag_config.mcp_server.enabled:
                 raise ValueError(f"MCP server not enabled for configuration '{configuration_name}'")
             
-            # Stop existing server if force restart
-            if force_restart and configuration_name in self.servers:
+            # Stop existing configuration if force restart
+            if force_restart and configuration_name in self.configurations:
                 await self.stop_server(configuration_name)
             
             # Check if already running
-            if configuration_name in self.servers and self.servers[configuration_name].is_running:
+            if configuration_name in self.configurations:
                 return {
                     "success": False,
                     "message": f"MCP server for '{configuration_name}' is already running"
                 }
             
-            # Create and start server
-            mcp_server = MCPServer(configuration_name, rag_config.mcp_server, self.rag_service)
-            await mcp_server.start()
+            # Add configuration to shared server
+            self.configurations[configuration_name] = rag_config.mcp_server
+            self.client_connections[configuration_name] = set()
             
-            self.servers[configuration_name] = mcp_server
+            # Start the shared server if not already running
+            if not self._is_running:
+                await self._start_shared_server()
             
             return {
                 "success": True,
                 "message": f"MCP server for '{configuration_name}' started successfully",
-                "endpoints": mcp_server.get_endpoints()
+                "endpoints": self._get_endpoints(configuration_name)
             }
             
         except Exception as e:
@@ -68,17 +76,29 @@ class MCPServerManager:
             }
     
     async def stop_server(self, configuration_name: str) -> Dict[str, Any]:
-        """Stop MCP server for a configuration."""
+        """Stop MCP server for a configuration (removes from shared server)."""
         try:
-            if configuration_name not in self.servers:
+            if configuration_name not in self.configurations:
                 return {
                     "success": False,
                     "message": f"No MCP server found for configuration '{configuration_name}'"
                 }
             
-            server = self.servers[configuration_name]
-            await server.stop()
-            del self.servers[configuration_name]
+            # Close client connections for this configuration
+            if configuration_name in self.client_connections:
+                for connection in list(self.client_connections[configuration_name]):
+                    try:
+                        await connection.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing connection: {str(e)}")
+                del self.client_connections[configuration_name]
+            
+            # Remove configuration
+            del self.configurations[configuration_name]
+            
+            # If no configurations left, stop the shared server
+            if not self.configurations and self._is_running:
+                await self._stop_shared_server()
             
             return {
                 "success": True,
@@ -94,7 +114,7 @@ class MCPServerManager:
     
     def get_server_status(self, configuration_name: str) -> Dict[str, Any]:
         """Get status of MCP server for a configuration."""
-        if configuration_name not in self.servers:
+        if configuration_name not in self.configurations:
             return {
                 "configuration_name": configuration_name,
                 "enabled": False,
@@ -106,8 +126,32 @@ class MCPServerManager:
                 "message": "Server not found"
             }
         
-        server = self.servers[configuration_name]
-        return server.get_status()
+        mcp_config = self.configurations[configuration_name]
+        
+        tools = []
+        for tool_config in mcp_config.tools:
+            tools.append({
+                "name": tool_config.name,
+                "type": tool_config.type.value,
+                "enabled": tool_config.enabled,
+                "description": tool_config.description
+            })
+        
+        uptime = None
+        if self._is_running and self._start_time:
+            uptime = (datetime.now(timezone.utc) - self._start_time).total_seconds()
+        
+        return {
+            "configuration_name": configuration_name,
+            "enabled": mcp_config.enabled,
+            "running": self._is_running,
+            "protocols": [p.value for p in mcp_config.protocols],
+            "endpoints": self._get_endpoints(configuration_name) if self._is_running else {},
+            "tools": tools,
+            "client_count": len(self.client_connections.get(configuration_name, set())),
+            "uptime_seconds": uptime,
+            "message": "Running" if self._is_running else "Stopped"
+        }
     
     def list_servers(self) -> List[Dict[str, Any]]:
         """List all MCP servers and their status."""
@@ -126,90 +170,139 @@ class MCPServerManager:
     
     async def shutdown_all(self):
         """Shutdown all MCP servers."""
-        for config_name in list(self.servers.keys()):
+        for config_name in list(self.configurations.keys()):
             await self.stop_server(config_name)
-
-
-class MCPServer:
-    """Individual MCP server instance for a configuration."""
     
-    def __init__(self, configuration_name: str, mcp_config: MCPServerConfig, rag_service: RAGService):
-        self.configuration_name = configuration_name
-        self.mcp_config = mcp_config
-        self.rag_service = rag_service
-        self.is_running = False
-        self.start_time: Optional[datetime] = None
-        self.client_connections: Set[Any] = set()
-        self.app: Optional[FastAPI] = None
-        self.server_task: Optional[asyncio.Task] = None
-        
-    async def start(self):
-        """Start the MCP server with configured protocols."""
-        if self.is_running:
+    async def _start_shared_server(self):
+        """Start the shared FastAPI server."""
+        if self._is_running:
             return
         
-        self.start_time = datetime.now(timezone.utc)
-        self.is_running = True
-        
-        # Create FastAPI app for HTTP and SSE protocols
-        if MCPProtocol.HTTP in self.mcp_config.protocols or MCPProtocol.SSE in self.mcp_config.protocols:
-            await self._setup_http_server()
-        
-        # TODO: Implement stdio protocol support
-        if MCPProtocol.STDIO in self.mcp_config.protocols:
-            logger.info(f"STDIO protocol support not yet implemented for '{self.configuration_name}'")
-    
-    async def _setup_http_server(self):
-        """Setup HTTP/SSE server."""
-        self.app = FastAPI(
-            title=f"MCP Server - {self.mcp_config.name}",
-            description=self.mcp_config.description,
-            version=self.mcp_config.version
+        self._app = FastAPI(
+            title="MCP Server Hub",
+            description="Multi-configuration MCP server with path-based routing",
+            version="1.0.0"
         )
         
-        # Add MCP endpoints
-        router = APIRouter(prefix=f"/{self.configuration_name}")
+        # Add CORS middleware to allow MCP client connections
+        self._app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # Allow all origins for MCP clients
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"]
+        )
         
-        # HTTP JSON-RPC endpoint
-        if MCPProtocol.HTTP in self.mcp_config.protocols:
-            @router.post("/mcp")
-            async def handle_mcp_request(request: Dict[str, Any]):
-                return await self._handle_mcp_request(request)
+        # Add dynamic routing for all MCP endpoints
+        @self._app.post("/{configuration_name}/mcp")
+        async def handle_mcp_request(configuration_name: str, request: Dict[str, Any]):
+            return await self._handle_mcp_request(configuration_name, request)
         
-        # SSE endpoint
-        if MCPProtocol.SSE in self.mcp_config.protocols:
-            @router.get("/sse")
-            async def handle_sse():
-                return StreamingResponse(
-                    self._handle_sse_stream(),
-                    media_type="text/event-stream",
-                    headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
-                )
+        @self._app.get("/{configuration_name}/sse")
+        async def handle_sse(configuration_name: str):
+            return StreamingResponse(
+                self._handle_sse_stream(configuration_name),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+            )
         
-        # WebSocket endpoint for real-time communication
-        @router.websocket("/ws")
-        async def handle_websocket(websocket: WebSocket):
-            await self._handle_websocket(websocket)
+        @self._app.websocket("/{configuration_name}/ws")
+        async def handle_websocket(configuration_name: str, websocket: WebSocket):
+            await self._handle_websocket(configuration_name, websocket)
         
-        # Server info endpoint
-        @router.get("/info")
-        async def get_server_info():
-            return self.get_status()
+        @self._app.get("/{configuration_name}/info")
+        async def get_server_info(configuration_name: str):
+            return self.get_server_status(configuration_name)
         
-        self.app.include_router(router)
+        # Global endpoints
+        @self._app.get("/")
+        async def root():
+            return {
+                "message": "MCP Server Hub",
+                "active_configurations": list(self.configurations.keys()),
+                "total_configurations": len(self.configurations)
+            }
         
-        # Start server in background
+        @self._app.get("/health")
+        async def health():
+            return {
+                "status": "healthy",
+                "configurations": len(self.configurations),
+                "running": self._is_running
+            }
+        
+        # Start server
         config = uvicorn.Config(
-            self.app,
-            host=self.mcp_config.http_host,
-            port=self.mcp_config.http_port + hash(self.configuration_name) % 1000,  # Unique port per config
+            self._app,
+            host=self._base_host,
+            port=self._base_port,
             log_level="info"
         )
         server = uvicorn.Server(config)
-        self.server_task = asyncio.create_task(server.serve())
+        self._server_task = asyncio.create_task(server.serve())
+        self._is_running = True
+        self._start_time = datetime.now(timezone.utc)
+        
+        logger.info(f"MCP Server Hub started on {self._base_host}:{self._base_port}")
     
-    async def _handle_mcp_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle MCP JSON-RPC request."""
+    async def _stop_shared_server(self):
+        """Stop the shared FastAPI server."""
+        if not self._is_running:
+            return
+        
+        self._is_running = False
+        
+        # Close all client connections
+        for config_connections in self.client_connections.values():
+            for connection in list(config_connections):
+                try:
+                    await connection.close()
+                except Exception as e:
+                    logger.warning(f"Error closing connection: {str(e)}")
+        
+        self.client_connections.clear()
+        
+        # Stop server task
+        if self._server_task:
+            self._server_task.cancel()
+            try:
+                await self._server_task
+            except asyncio.CancelledError:
+                pass
+        
+        logger.info("MCP Server Hub stopped")
+    
+    def _get_endpoints(self, configuration_name: str) -> Dict[str, str]:
+        """Get server endpoints for a configuration."""
+        if not self._is_running or configuration_name not in self.configurations:
+            return {}
+        
+        mcp_config = self.configurations[configuration_name]
+        base_url = f"http://{self._base_host}:{self._base_port}/{configuration_name}"
+        
+        endpoints = {}
+        if MCPProtocol.HTTP in mcp_config.protocols:
+            endpoints["http"] = f"{base_url}/mcp"
+        if MCPProtocol.SSE in mcp_config.protocols:
+            endpoints["sse"] = f"{base_url}/sse"
+        endpoints["websocket"] = f"{base_url.replace('http://', 'ws://')}/ws"
+        endpoints["info"] = f"{base_url}/info"
+        
+        return endpoints
+
+
+    async def _handle_mcp_request(self, configuration_name: str, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle MCP JSON-RPC request for a specific configuration."""
+        if configuration_name not in self.configurations:
+            return {
+                "jsonrpc": "2.0",
+                "id": request.get("id"),
+                "error": {
+                    "code": -32001,
+                    "message": f"Configuration '{configuration_name}' not found"
+                }
+            }
+        
         try:
             method = request.get("method")
             params = request.get("params", {})
@@ -219,13 +312,13 @@ class MCPServer:
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
-                    "result": {"tools": self._get_tools_schema()}
+                    "result": {"tools": self._get_tools_schema(configuration_name)}
                 }
             
             elif method == "tools/call":
                 tool_name = params.get("name")
                 arguments = params.get("arguments", {})
-                result = await self._execute_tool(tool_name, arguments)
+                result = await self._execute_tool(configuration_name, tool_name, arguments)
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -233,6 +326,7 @@ class MCPServer:
                 }
             
             elif method == "initialize":
+                mcp_config = self.configurations[configuration_name]
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -243,8 +337,8 @@ class MCPServer:
                             "resources": {}
                         },
                         "serverInfo": {
-                            "name": self.mcp_config.name,
-                            "version": self.mcp_config.version
+                            "name": mcp_config.name,
+                            "version": mcp_config.version
                         }
                     }
                 }
@@ -270,32 +364,41 @@ class MCPServer:
                 }
             }
     
-    async def _handle_sse_stream(self):
+    async def _handle_sse_stream(self, configuration_name: str):
         """Handle SSE stream for real-time updates."""
+        if configuration_name not in self.configurations:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Configuration {configuration_name} not found'})}\n\n"
+            return
+        
         try:
+            mcp_config = self.configurations[configuration_name]
             # Send initial connection event
-            yield f"data: {json.dumps({'type': 'connected', 'server': self.mcp_config.name})}\n\n"
+            yield f"data: {json.dumps({'type': 'connected', 'server': mcp_config.name, 'configuration': configuration_name})}\n\n"
             
             # Keep connection alive
-            while self.is_running:
+            while self._is_running and configuration_name in self.configurations:
                 # Send heartbeat every 30 seconds
-                yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now().isoformat()})}\n\n"
+                yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.now().isoformat(), 'configuration': configuration_name})}\n\n"
                 await asyncio.sleep(30)
                 
         except Exception as e:
             logger.error(f"Error in SSE stream: {str(e)}")
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
     
-    async def _handle_websocket(self, websocket: WebSocket):
-        """Handle WebSocket connection."""
+    async def _handle_websocket(self, configuration_name: str, websocket: WebSocket):
+        """Handle WebSocket connection for a specific configuration."""
+        if configuration_name not in self.configurations:
+            await websocket.close(code=4004, reason=f"Configuration '{configuration_name}' not found")
+            return
+        
         await websocket.accept()
-        self.client_connections.add(websocket)
+        self.client_connections[configuration_name].add(websocket)
         
         try:
             while True:
                 data = await websocket.receive_text()
                 request = json.loads(data)
-                response = await self._handle_mcp_request(request)
+                response = await self._handle_mcp_request(configuration_name, request)
                 await websocket.send_text(json.dumps(response))
                 
         except WebSocketDisconnect:
@@ -303,13 +406,17 @@ class MCPServer:
         except Exception as e:
             logger.error(f"WebSocket error: {str(e)}")
         finally:
-            self.client_connections.discard(websocket)
+            self.client_connections[configuration_name].discard(websocket)
     
-    def _get_tools_schema(self) -> List[Dict[str, Any]]:
-        """Get MCP tools schema."""
+    def _get_tools_schema(self, configuration_name: str) -> List[Dict[str, Any]]:
+        """Get MCP tools schema for a configuration."""
+        if configuration_name not in self.configurations:
+            return []
+        
+        mcp_config = self.configurations[configuration_name]
         tools = []
         
-        for tool_config in self.mcp_config.tools:
+        for tool_config in mcp_config.tools:
             if not tool_config.enabled:
                 continue
                 
@@ -335,17 +442,41 @@ class MCPServer:
                 },
                 "required": ["query"]
             }
+        elif tool_type == MCPToolType.SEARCH:
+            return {
+                "type": "object", 
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "max_results": {"type": "integer", "description": "Maximum results", "default": 10}
+                },
+                "required": ["query"]
+            }
+        elif tool_type == MCPToolType.LIST_DOCUMENTS:
+            return {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Maximum documents to list", "default": 20}
+                }
+            }
         else:
             return {"type": "object", "properties": {}}
     
-    async def _execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute MCP tool."""
+    async def _execute_tool(self, configuration_name: str, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute MCP tool for a specific configuration."""
         start_time = time.time()
         
         try:
+            if configuration_name not in self.configurations:
+                return {
+                    "isError": True,
+                    "content": [{"type": "text", "text": f"Configuration '{configuration_name}' not found"}]
+                }
+            
+            mcp_config = self.configurations[configuration_name]
+            
             # Find tool config
             tool_config = None
-            for config in self.mcp_config.tools:
+            for config in mcp_config.tools:
                 if config.name == tool_name and config.enabled:
                     tool_config = config
                     break
@@ -358,7 +489,13 @@ class MCPServer:
             
             # Execute based on tool type
             if tool_config.type == MCPToolType.RETRIEVE:
-                result = await self._execute_retrieve_tool(arguments, tool_config)
+                result = await self._execute_retrieve_tool(configuration_name, arguments, tool_config)
+            elif tool_config.type == MCPToolType.SEARCH:
+                result = await self._execute_search_tool(configuration_name, arguments, tool_config)
+            elif tool_config.type == MCPToolType.LIST_DOCUMENTS:
+                result = await self._execute_list_documents_tool(configuration_name, arguments, tool_config)
+            elif tool_config.type == MCPToolType.QUERY:
+                result = await self._execute_query_tool(configuration_name, arguments, tool_config)
             else:
                 return {
                     "isError": True,
@@ -379,7 +516,7 @@ class MCPServer:
                 "content": [{"type": "text", "text": f"Tool execution error: {str(e)}"}]
             }
     
-    async def _execute_retrieve_tool(self, arguments: Dict[str, Any], tool_config: MCPToolConfig) -> Dict[str, Any]:
+    async def _execute_retrieve_tool(self, configuration_name: str, arguments: Dict[str, Any], tool_config: MCPToolConfig) -> Dict[str, Any]:
         """Execute retrieve tool."""
         query = arguments.get("query", "")
         k = min(arguments.get("k", 5), tool_config.max_results)
@@ -389,7 +526,7 @@ class MCPServer:
         # Create retrieve request
         request = RetrieveRequest(
             query=query,
-            configuration_name=self.configuration_name,
+            configuration_name=configuration_name,
             k=k,
             similarity_threshold=similarity_threshold,
             include_metadata=tool_config.include_metadata,
@@ -402,78 +539,105 @@ class MCPServer:
             configuration_name=request.configuration_name,
             k=request.k,
             similarity_threshold=request.similarity_threshold,
-            filter_metadata=request.filter,
-            include_metadata=request.include_metadata
+            filter=request.filter
         )
+        
         
         return {
             "query": query,
             "documents": documents,
             "total_found": len(documents),
-            "configuration_name": self.configuration_name
+            "configuration_name": configuration_name
         }
     
+    async def _execute_search_tool(self, configuration_name: str, arguments: Dict[str, Any], tool_config: MCPToolConfig) -> Dict[str, Any]:
+        """Execute search tool (same as retrieve but different interface)."""
+        return await self._execute_retrieve_tool(configuration_name, arguments, tool_config)
     
-    def get_endpoints(self) -> Dict[str, str]:
-        """Get server endpoints."""
-        endpoints = {}
-        base_url = f"http://{self.mcp_config.http_host}:{self.mcp_config.http_port + hash(self.configuration_name) % 1000}/{self.configuration_name}"
+    async def _execute_list_documents_tool(self, configuration_name: str, arguments: Dict[str, Any], tool_config: MCPToolConfig) -> Dict[str, Any]:
+        """Execute list documents tool."""
+        limit = min(arguments.get("limit", 20), tool_config.max_results)
         
-        if MCPProtocol.HTTP in self.mcp_config.protocols:
-            endpoints["http"] = f"{base_url}/mcp"
-        if MCPProtocol.SSE in self.mcp_config.protocols:
-            endpoints["sse"] = f"{base_url}/sse"
-        if "ws" not in endpoints:  # Always include WebSocket
-            endpoints["websocket"] = f"{base_url.replace('http://', 'ws://')}/ws"
-        
-        return endpoints
+        try:
+            vector_store = self.rag_service._get_vector_store(configuration_name)
+            documents = vector_store.get_all_documents(limit=limit)
+            
+            # Extract unique document IDs and metadata
+            unique_docs = {}
+            for doc in documents:
+                doc_id = doc.metadata.get('document_id', 'unknown')
+                if doc_id not in unique_docs:
+                    unique_docs[doc_id] = {
+                        'document_id': doc_id,
+                        'metadata': doc.metadata,
+                        'chunk_count': 0
+                    }
+                unique_docs[doc_id]['chunk_count'] += 1
+            
+            return {
+                "documents": list(unique_docs.values()),
+                "total_unique_documents": len(unique_docs),
+                "configuration_name": configuration_name
+            }
+            
+        except Exception as e:
+            raise Exception(f"Failed to list documents: {str(e)}")
     
-    def get_status(self) -> Dict[str, Any]:
-        """Get server status."""
-        uptime = None
-        if self.start_time:
-            uptime = (datetime.now(timezone.utc) - self.start_time).total_seconds()
+    async def _execute_query_tool(self, configuration_name: str, arguments: Dict[str, Any], tool_config: MCPToolConfig) -> Dict[str, Any]:
+        """Execute query tool with LLM generation."""
+        query = arguments.get("query", "")
+        k = min(arguments.get("k", 5), tool_config.max_results)
         
-        tools = []
-        for tool_config in self.mcp_config.tools:
-            tools.append({
-                "name": tool_config.name,
-                "type": tool_config.type.value,
-                "enabled": tool_config.enabled,
-                "description": tool_config.description
-            })
+        # Create query request
+        request = QueryRequest(
+            query=query,
+            configuration_name=configuration_name,
+            k=k,
+            include_metadata=tool_config.include_metadata
+        )
+        
+        # Execute query
+        response = await self.rag_service.query(
+            query=request.query,
+            configuration_name=request.configuration_name,
+            k=request.k
+        )
         
         return {
-            "configuration_name": self.configuration_name,
-            "enabled": self.mcp_config.enabled,
-            "running": self.is_running,
-            "protocols": [p.value for p in self.mcp_config.protocols],
-            "endpoints": self.get_endpoints() if self.is_running else {},
-            "tools": tools,
-            "client_count": len(self.client_connections),
-            "uptime_seconds": uptime,
-            "message": "Running" if self.is_running else "Stopped"
+            "query": query,
+            "answer": response["answer"],
+            "sources": response["sources"],
+            "configuration_name": configuration_name
         }
+
+
+# Keep MCPServer class for backward compatibility (now just a simple wrapper)
+class MCPServer:
+    """Legacy compatibility class - functionality moved to MCPServerManager."""
     
-    async def stop(self):
-        """Stop the MCP server."""
+    def __init__(self, configuration_name: str, mcp_config: MCPServerConfig, rag_service: RAGService):
+        logger.warning("MCPServer class is deprecated. Use MCPServerManager directly.")
+        self.configuration_name = configuration_name
+        self.mcp_config = mcp_config
+        self.rag_service = rag_service
         self.is_running = False
-        
-        # Close client connections
-        for connection in list(self.client_connections):
-            try:
-                await connection.close()
-            except Exception as e:
-                logger.warning(f"Error closing connection: {str(e)}")
-        
-        self.client_connections.clear()
-        
-        # Stop server task
-        if self.server_task:
-            self.server_task.cancel()
-            try:
-                await self.server_task
-            except asyncio.CancelledError:
-                pass
-        
         self.start_time = None
+        self.client_connections = set()
+        self.app = None
+        self.server_task = None
+        
+    async def start(self):
+        """Start method - deprecated, use MCPServerManager instead."""
+        raise DeprecationWarning("MCPServer.start() is deprecated. Use MCPServerManager.start_server() instead.")
+        
+    async def stop(self):
+        """Stop method - deprecated, use MCPServerManager instead."""
+        raise DeprecationWarning("MCPServer.stop() is deprecated. Use MCPServerManager.stop_server() instead.")
+        
+    def get_status(self):
+        """Get status method - deprecated, use MCPServerManager instead."""
+        raise DeprecationWarning("MCPServer.get_status() is deprecated. Use MCPServerManager.get_server_status() instead.")
+        
+    def get_endpoints(self):
+        """Get endpoints method - deprecated, use MCPServerManager instead."""
+        raise DeprecationWarning("MCPServer.get_endpoints() is deprecated. Use MCPServerManager._get_endpoints() instead.")

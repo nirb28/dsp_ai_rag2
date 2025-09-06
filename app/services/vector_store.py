@@ -530,8 +530,8 @@ class VectorStoreManager:
                     index_name = config.es_index_name
 
                 load_dotenv()
-                if os.environ.get("Elastic_Password"):
-                    elastic_password = os.environ.get("Elastic_Password")                 
+                # Use environment password if available, otherwise use config password (may be None for API key auth)
+                elastic_password = os.environ.get("Elastic_Password") or config.es_password
                 configuration_config = VectorStoreConfig(
                     type=config.type,
                     dimension=config.dimension,
