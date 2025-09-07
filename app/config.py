@@ -248,6 +248,7 @@ class MCPToolConfig(BaseModel):
     description: str = Field(..., description="Tool description for LLMs")
     parameters_schema: Optional[Dict[str, Any]] = Field(default=None, description="Custom JSON schema for tool parameters")
     max_results: int = Field(default=10, ge=1, le=100, description="Maximum number of results to return")
+    similarity_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Default similarity threshold for this tool")
     include_metadata: bool = Field(default=True, description="Whether to include document metadata in results")
     
 class MCPServerConfig(BaseModel):

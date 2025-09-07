@@ -59,23 +59,22 @@ Add the `mcp_server` section to your RAG configuration:
 MCP servers are configured in the RAG configuration with the `mcp_server` section:
 
 ```json
-{
-  "mcp_server": {
-    "enabled": true,
-    "startup_enabled": true,
-    "protocols": ["http", "sse"],
-    "tools": {
-      "retrieve_documents": {
-        "enabled": true,
-        "max_results": 10
-      },
-      "search_documents": {
-        "enabled": true,
-        "max_results": 20
-      }
-    }
-  }
-}
+    "mcp_server": {
+      "startup_enabled": true,
+      "enabled": true,
+      "name": "mcp_batch_ml_ai_basics_test",
+      "protocols": ["http", "sse"],
+      "tools": [
+        {
+          "type": "retrieve",
+          "name": "query_machine_learning_docs",
+          "description": "Query machine learning documents. Be precise and include key terms for better results.",
+          "max_results": 1,
+          "similarity_threshold": 0.1
+        }
+      ]
+    }    
+
 ```
 
 
@@ -92,8 +91,6 @@ Each configuration in the MCP server hub exposes endpoints at:
 The MCP server hub also provides direct access endpoints:
 - **Hub Root**: `http://localhost:8080/` - Shows active configurations
 - **Hub Health**: `http://localhost:8080/health` - Health status
-
-## Client Integration Examples
 
 ### Claude Desktop Integration
 

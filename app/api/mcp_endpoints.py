@@ -7,7 +7,7 @@ These endpoints were moved from the main RAG server to the dedicated MCP server.
 
 import logging
 from typing import Dict, Any, List
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Response
 from fastapi.responses import StreamingResponse
 
 from app.model_schemas.mcp_models import (
@@ -42,7 +42,14 @@ def get_mcp_manager():
 async def handle_mcp_request(configuration_name: str, request: Dict[str, Any]):
     """Handle MCP JSON-RPC request for a specific configuration."""
     manager = get_mcp_manager()
-    return await manager._handle_mcp_request(configuration_name, request)
+    response = await manager._handle_mcp_request(configuration_name, request)
+    
+    # Handle notifications (no response expected)
+    if response is None:
+        # Return 204 No Content for notifications (MCP protocol requirement)
+        return Response(status_code=204)
+    
+    return response
 
 
 @router.get("/{configuration_name}/sse")

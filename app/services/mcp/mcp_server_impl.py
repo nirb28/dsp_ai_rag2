@@ -33,8 +33,12 @@ class MCPServerImpl:
         """Start MCP server for a configuration."""
         try:
             rag_config = self.rag_service.get_configuration(configuration_name)
+            logger.info(f"Loaded config for '{configuration_name}', MCP server enabled: {rag_config.mcp_server and rag_config.mcp_server.enabled}")
+            
             if not rag_config.mcp_server or not rag_config.mcp_server.enabled:
                 raise ValueError(f"MCP server not enabled for configuration '{configuration_name}'")
+            
+            logger.info(f"MCP server tools for '{configuration_name}': {[tool.name for tool in rag_config.mcp_server.tools]}")
             
             if force_restart and configuration_name in self.configurations:
                 await self.stop_server(configuration_name)
@@ -192,14 +196,14 @@ class MCPServerImpl:
                         },
                         "similarity_threshold": {
                             "type": "number",
-                            "description": f"Similarity threshold (default: {tool.default_similarity_threshold or 0.5})",
+                            "description": f"Similarity threshold (default: {getattr(tool, 'similarity_threshold', 0.5)})",
                             "minimum": 0.0,
                             "maximum": 1.0,
-                            "default": tool.default_similarity_threshold or 0.5
+                            "default": getattr(tool, 'similarity_threshold', 0.5)
                         },
-                        "max_results": {
+                        "k": {
                             "type": "integer",
-                            "description": "Maximum number of results to return",
+                            "description": "Number of documents to retrieve",
                             "minimum": 1,
                             "maximum": 100,
                             "default": 10
@@ -237,8 +241,8 @@ class MCPServerImpl:
             
             # Extract parameters
             query = parameters.get("query", "")
-            similarity_threshold = parameters.get("similarity_threshold", tool_config.default_similarity_threshold or 0.5)
-            max_results = parameters.get("max_results", 10)
+            similarity_threshold = parameters.get("similarity_threshold", getattr(tool_config, 'similarity_threshold', 0.5))
+            k = parameters.get("k", getattr(tool_config, 'max_results', 10))
             
             if not query:
                 return {
@@ -246,35 +250,43 @@ class MCPServerImpl:
                     "content": [{"type": "text", "text": "Query parameter is required"}]
                 }
             
-            # Execute the query
+            # Execute the query based on tool type, not tool name
             start_time = datetime.datetime.now()
             
-            if tool_name == "query_documents":
-                results = await self.rag_service.query(
-                    configuration_name=configuration_name,
-                    query=query,
-                    similarity_threshold=similarity_threshold,
-                    max_results=max_results
-                )
-            elif tool_name == "retrieve_documents":
+            if tool_config.type == "retrieve":
                 results = await self.rag_service.retrieve(
                     configuration_name=configuration_name,
                     query=query,
                     similarity_threshold=similarity_threshold,
-                    max_results=max_results
+                    k=k
                 )
             else:
                 return {
                     "isError": True,
-                    "content": [{"type": "text", "text": f"Unknown tool: {tool_name}"}]
+                    "content": [{"type": "text", "text": f"Unknown tool type: {tool_config.type}"}]
                 }
             
             execution_time = (datetime.datetime.now() - start_time).total_seconds()
             
-            # Format results
-            if results and "results" in results:
-                content = []
-                for i, result in enumerate(results["results"][:max_results]):
+            # Format results - handle all possible response formats
+            content = []
+            
+            # RAGService.retrieve() returns (documents, metadata) tuple
+            if isinstance(results, tuple) and len(results) >= 1:
+                documents = results[0]
+            # Handle direct list of documents
+            elif isinstance(results, list):
+                documents = results
+            # Handle dictionary format (for query method)
+            elif isinstance(results, dict) and "results" in results:
+                documents = results["results"]
+            else:
+                # Handle None, empty, or unexpected formats
+                documents = []
+            
+            # Process documents if any exist
+            if documents and len(documents) > 0:
+                for i, result in enumerate(documents[:k]):
                     content.append({
                         "type": "text",
                         "text": f"Document {i+1}:\n"
@@ -282,18 +294,18 @@ class MCPServerImpl:
                                f"Score: {result.get('score', 'N/A')}\n"
                                f"Metadata: {json.dumps(result.get('metadata', {}), indent=2)}\n"
                     })
-                
-                return {
-                    "isError": False,
-                    "content": content,
-                    "executionTime": execution_time
-                }
             else:
-                return {
-                    "isError": False,
-                    "content": [{"type": "text", "text": "No results found"}],
-                    "executionTime": execution_time
-                }
+                # No documents found
+                content.append({
+                    "type": "text", 
+                    "text": "No results found"
+                })
+            
+            return {
+                "isError": False,
+                "content": content,
+                "executionTime": execution_time
+            }
                 
         except Exception as e:
             logger.error(f"Error executing tool '{tool_name}': {str(e)}")
@@ -302,14 +314,52 @@ class MCPServerImpl:
                 "content": [{"type": "text", "text": f"Error executing tool: {str(e)}"}]
             }
     
-    async def _handle_mcp_request(self, configuration_name: str, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_mcp_request(self, configuration_name: str, request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Handle MCP JSON-RPC request."""
         try:
             method = request.get("method")
             params = request.get("params", {})
             request_id = request.get("id")
             
-            if method == "tools/call":
+            # Handle notifications (no response expected)
+            if request_id is None:
+                if method == "notifications/initialized":
+                    # Client acknowledges initialization - no response needed
+                    logger.info(f"Client initialized for configuration '{configuration_name}'")
+                    return None
+                else:
+                    # Unknown notification - log and ignore
+                    logger.warning(f"Unknown notification method: {method}")
+                    return None
+            
+            # Handle requests (response expected)
+            if method == "initialize":
+                # MCP initialization handshake
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {
+                            "tools": {"listChanged": True},
+                            "resources": {}
+                        },
+                        "serverInfo": {
+                            "name": f"RAG MCP Server - {configuration_name}",
+                            "version": "1.0.0"
+                        }
+                    }
+                }
+            
+            elif method == "ping":
+                # Ping/pong for connection health
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {}
+                }
+            
+            elif method == "tools/call":
                 tool_name = params.get("name")
                 arguments = params.get("arguments", {})
                 
@@ -365,7 +415,10 @@ class MCPServerImpl:
                 data = await websocket.receive_text()
                 request = json.loads(data)
                 response = await self._handle_mcp_request(configuration_name, request)
-                await websocket.send_text(json.dumps(response))
+                
+                # Only send response if one is expected (not for notifications)
+                if response is not None:
+                    await websocket.send_text(json.dumps(response))
                 
         except WebSocketDisconnect:
             pass
@@ -375,8 +428,10 @@ class MCPServerImpl:
             if websocket in self.client_connections[configuration_name]:
                 self.client_connections[configuration_name].remove(websocket)
     
-    async def _handle_sse_stream(self, configuration_name: str):
-        """Handle Server-Sent Events stream."""
+    def _handle_sse_stream(self, configuration_name: str):
+        """Handle Server-Sent Events stream.
+        Return an async generator instance suitable for StreamingResponse.
+        """
         async def event_generator():
             if configuration_name not in self.configurations:
                 yield f"data: {json.dumps({'error': 'Configuration not found'})}\n\n"
@@ -390,4 +445,5 @@ class MCPServerImpl:
                 await asyncio.sleep(30)  # Send keepalive every 30 seconds
                 yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': datetime.datetime.now().isoformat()})}\n\n"
         
+        # Return the async generator instance (not a coroutine nor the function itself)
         return event_generator()
