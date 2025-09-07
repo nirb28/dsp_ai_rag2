@@ -1,5 +1,5 @@
 """MCP (Model Context Protocol) server implementation."""
 
-from .server import MCPServer, MCPServerManager
+from .mcp_server_impl import MCPServerImpl
 
-__all__ = ["MCPServer", "MCPServerManager"]
+__all__ = ["MCPServerImpl"]

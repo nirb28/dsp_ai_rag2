@@ -27,7 +27,7 @@ import uvicorn
 from fastapi.encoders import jsonable_encoder
 
 from app.services.rag_service import RAGService
-from app.services.mcp.server import MCPServerManager
+from app.services.mcp.mcp_server_impl import MCPServerImpl
 from app.model_schemas import ErrorResponse
 
 from dotenv import load_dotenv
@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
     logger.info("✅ RAG Service initialized")
     
     # Initialize MCP server manager
-    mcp_manager = MCPServerManager(rag_service)
+    mcp_manager = MCPServerImpl(rag_service)
     logger.info("✅ MCP Server Manager initialized")
     
     # Auto-start MCP servers with startup_enabled=true
