@@ -1,0 +1,51 @@
+{
+  "configuration_name": "secure_enterprise_config",
+  "config": {
+    "chunking": {
+      "strategy": "recursive_text",
+      "chunk_size": 1000,
+      "chunk_overlap": 200,
+      "separators": ["\n\n", "\n", " ", ""]
+    },
+    "vector_store": {
+      "type": "faiss",
+      "index_path": "./storage/secure_enterprise_faiss_index",
+      "dimension": 384
+    },
+    "embedding": {
+      "model": "sentence-transformers/all-MiniLM-L6-v2",
+      "batch_size": 32,
+      "server_url": "http://localhost:8000"
+    },
+    "generation": {
+      "model": "llama3-8b-8192",
+      "provider": "groq",
+      "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+      "api_key": "${GROQ_API_KEY}",
+      "temperature": 0.7,
+      "max_tokens": 512,
+      "top_p": 0.9,
+      "system_prompt": "You are a helpful AI assistant. Provide accurate and concise answers based on the provided context."
+    },
+    "retrieval_k": 5,
+    "similarity_threshold": 0.7,
+    "reranking": {
+      "enabled": true,
+      "model": "cohere-rerank",
+      "api_key": "${COHERE_API_KEY}",
+      "top_n": 10,
+      "score_threshold": 0.1
+    },
+    "security": {
+      "enabled": true,
+      "type": "jwt_bearer",
+      "jwt_secret_key": "${JWT_SECRET_KEY}",
+      "jwt_algorithm": "HS256",
+      "jwt_issuer": "enterprise-auth-service",
+      "jwt_audience": "rag-api",
+      "jwt_require_exp": true,
+      "jwt_require_iat": true,
+      "jwt_leeway": 10
+    }
+  }
+}

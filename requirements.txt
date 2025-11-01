@@ -1,0 +1,52 @@
+fastapi
+uvicorn
+pydantic
+python-multipart==0.0.6
+python-jose==3.3.0
+passlib==1.7.4
+httpx==0.24.1
+python-dotenv==1.0.0
+requests==2.31.0
+PyJWT==2.8.0
+fitz
+frontend
+pymupdf
+# LLM and embedding services
+openai
+groq
+langchain
+langchain-community
+langchain-experimental  # For graph transformers
+sentence-transformers
+
+# Reranking dependencies
+cohere # For Cohere Rerank API
+
+# Document processing
+pypdf>=3.15.0
+docx2txt>=0.8
+python-pptx>=0.6.21
+python-docx==1.1.0
+
+# Vector stores
+faiss-cpu
+chromadb
+pinecone-client
+weaviate-client
+redis
+rank-bm25
+neo4j
+elasticsearch>=8.0.0,<9.0.0
+
+# Text processing and tokens
+tiktoken
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.21.1
+
+# UI and streaming
+sse-starlette==1.6.5
+streamlit==1.30.0
+streamlit-chat==0.1.1
+reportlab # For PDF generation in tests

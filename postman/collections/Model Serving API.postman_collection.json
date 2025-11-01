@@ -1,0 +1,1771 @@
+{
+	"info": {
+		"_postman_id": "c2b27afd-8f0d-4ff5-b46b-c5e673ee531f",
+		"name": "MS v2",
+		"description": "API for serving ML models that aren't compatible with vLLM",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "260790",
+		"_collection_link": "https://crimson-flare-101603.postman.co/workspace/My-Workspace~6ebdbd9c-69f2-4617-8c2e-add8e28eb928/collection/260790-c2b27afd-8f0d-4ff5-b46b-c5e673ee531f?action=share&source=collection_link&creator=260790"
+	},
+	"item": [
+		{
+			"name": "api",
+			"item": [
+				{
+					"name": "v1",
+					"item": [
+						{
+							"name": "lora",
+							"item": [
+								{
+									"name": "jobs",
+									"item": [
+										{
+											"name": "{job_id}",
+											"item": [
+												{
+													"name": "cancel",
+													"item": [
+														{
+															"name": "Cancel Job",
+															"request": {
+																"method": "POST",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id/cancel",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"lora",
+																		"jobs",
+																		":job_id",
+																		"cancel"
+																	],
+																	"variable": [
+																		{
+																			"key": "job_id",
+																			"value": "commodo dolore",
+																			"description": "(Required) ID of the LoRA fine-tuning job"
+																		}
+																	]
+																},
+																"description": "Cancel a running LoRA fine-tuning job."
+															},
+															"response": [
+																{
+																	"name": "Successful Response",
+																	"originalRequest": {
+																		"method": "POST",
+																		"header": [
+																			{
+																				"key": "Accept",
+																				"value": "application/json"
+																			}
+																		],
+																		"url": {
+																			"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id/cancel",
+																			"host": [
+																				"{{baseUrl}}"
+																			],
+																			"path": [
+																				"api",
+																				"v1",
+																				"lora",
+																				"jobs",
+																				":job_id",
+																				"cancel"
+																			],
+																			"variable": [
+																				{
+																					"key": "job_id"
+																				}
+																			]
+																		}
+																	},
+																	"status": "OK",
+																	"code": 200,
+																	"_postman_previewlanguage": "json",
+																	"header": [
+																		{
+																			"key": "Content-Type",
+																			"value": "application/json"
+																		}
+																	],
+																	"cookie": [],
+																	"body": "{\n  \"job_id\": \"aliqua velit\",\n  \"name\": \"elit sit\",\n  \"status\": \"PENDING\",\n  \"progress\": {\n    \"current_step\": 0,\n    \"total_steps\": 0,\n    \"loss\": -63193118.11205335,\n    \"learning_rate\": 85569638.45311087,\n    \"epoch\": 74537606.10807762,\n    \"message\": \"veniam magna esse commodo\"\n  },\n  \"created_at\": \"1976-03-31T05:16:56.435Z\",\n  \"updated_at\": \"1989-06-14T15:34:01.944Z\",\n  \"message\": \"sint exercitation pariat\",\n  \"error\": \"aliqua officia aute id\"\n}"
+																},
+																{
+																	"name": "Validation Error",
+																	"originalRequest": {
+																		"method": "POST",
+																		"header": [
+																			{
+																				"key": "Accept",
+																				"value": "application/json"
+																			}
+																		],
+																		"url": {
+																			"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id/cancel",
+																			"host": [
+																				"{{baseUrl}}"
+																			],
+																			"path": [
+																				"api",
+																				"v1",
+																				"lora",
+																				"jobs",
+																				":job_id",
+																				"cancel"
+																			],
+																			"variable": [
+																				{
+																					"key": "job_id"
+																				}
+																			]
+																		}
+																	},
+																	"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+																	"code": 422,
+																	"_postman_previewlanguage": "json",
+																	"header": [
+																		{
+																			"key": "Content-Type",
+																			"value": "application/json"
+																		}
+																	],
+																	"cookie": [],
+																	"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+																}
+															]
+														}
+													]
+												},
+												{
+													"name": "Get Job",
+													"request": {
+														"method": "GET",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"jobs",
+																":job_id"
+															],
+															"variable": [
+																{
+																	"key": "job_id",
+																	"value": "commodo dolore",
+																	"description": "(Required) ID of the LoRA fine-tuning job"
+																}
+															]
+														},
+														"description": "Get details of a specific LoRA fine-tuning job."
+													},
+													"response": [
+														{
+															"name": "Successful Response",
+															"originalRequest": {
+																"method": "GET",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"lora",
+																		"jobs",
+																		":job_id"
+																	],
+																	"variable": [
+																		{
+																			"key": "job_id"
+																		}
+																	]
+																}
+															},
+															"status": "OK",
+															"code": 200,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"id\": \"cupidatat laborum\",\n  \"name\": \"Excepteur ullamco\",\n  \"config\": {\n    \"base_model\": \"sunt Ut in\",\n    \"adapter_name\": \"minim\",\n    \"training_data\": [\n      {\n        \"completion\": \"Machine learning is...\",\n        \"prompt\": \"What is machine learning?\"\n      }\n    ],\n    \"lora_r\": 8,\n    \"lora_alpha\": 16,\n    \"lora_dropout\": 0.05,\n    \"batch_size\": 4,\n    \"learning_rate\": 0.0003,\n    \"num_epochs\": 3,\n    \"sequence_length\": 512,\n    \"target_modules\": [\n      \"exercitation sit laboris\",\n      \"enim occaecat eu nisi\"\n    ],\n    \"use_fp16\": false,\n    \"use_bf16\": false,\n    \"use_int8\": false\n  },\n  \"status\": \"PENDING\",\n  \"created_at\": \"1947-08-29T01:08:13.844Z\",\n  \"updated_at\": \"2008-08-04T14:05:30.994Z\",\n  \"progress\": {\n    \"current_step\": 0,\n    \"total_steps\": 0,\n    \"loss\": -78620455.66719629,\n    \"learning_rate\": 31274747.520684525,\n    \"epoch\": 89685811.91297677,\n    \"message\": \"nostrud ut\"\n  },\n  \"error\": \"aute\"\n}"
+														},
+														{
+															"name": "Validation Error",
+															"originalRequest": {
+																"method": "GET",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"lora",
+																		"jobs",
+																		":job_id"
+																	],
+																	"variable": [
+																		{
+																			"key": "job_id"
+																		}
+																	]
+																}
+															},
+															"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+															"code": 422,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+														}
+													]
+												},
+												{
+													"name": "Delete Job",
+													"request": {
+														"method": "DELETE",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"jobs",
+																":job_id"
+															],
+															"variable": [
+																{
+																	"key": "job_id",
+																	"value": "commodo dolore",
+																	"description": "(Required) ID of the LoRA fine-tuning job"
+																}
+															]
+														},
+														"description": "Delete a LoRA fine-tuning job."
+													},
+													"response": [
+														{
+															"name": "Successful Response",
+															"originalRequest": {
+																"method": "DELETE",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"lora",
+																		"jobs",
+																		":job_id"
+																	],
+																	"variable": [
+																		{
+																			"key": "job_id"
+																		}
+																	]
+																}
+															},
+															"status": "OK",
+															"code": 200,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"job_id\": \"aliqua velit\",\n  \"name\": \"elit sit\",\n  \"status\": \"PENDING\",\n  \"progress\": {\n    \"current_step\": 0,\n    \"total_steps\": 0,\n    \"loss\": -63193118.11205335,\n    \"learning_rate\": 85569638.45311087,\n    \"epoch\": 74537606.10807762,\n    \"message\": \"veniam magna esse commodo\"\n  },\n  \"created_at\": \"1976-03-31T05:16:56.435Z\",\n  \"updated_at\": \"1989-06-14T15:34:01.944Z\",\n  \"message\": \"sint exercitation pariat\",\n  \"error\": \"aliqua officia aute id\"\n}"
+														},
+														{
+															"name": "Validation Error",
+															"originalRequest": {
+																"method": "DELETE",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/lora/jobs/:job_id",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"lora",
+																		"jobs",
+																		":job_id"
+																	],
+																	"variable": [
+																		{
+																			"key": "job_id"
+																		}
+																	]
+																}
+															},
+															"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+															"code": 422,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+														}
+													]
+												}
+											]
+										},
+										{
+											"name": "Create Job",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"name\": \"dolor amet ea do\",\n  \"config\": {\n    \"base_model\": \"exercitation amet labore voluptate sint\",\n    \"adapter_name\": \"consectetur adip\",\n    \"training_data\": [\n      {\n        \"completion\": \"Machine learning is...\",\n        \"prompt\": \"What is machine learning?\"\n      }\n    ],\n    \"lora_r\": 8,\n    \"lora_alpha\": 16,\n    \"lora_dropout\": 0.05,\n    \"batch_size\": 4,\n    \"learning_rate\": 0.0003,\n    \"num_epochs\": 3,\n    \"sequence_length\": 512,\n    \"target_modules\": [\n      \"Excepteur mollit sed ullamco dolore\",\n      \"velit\"\n    ],\n    \"use_fp16\": false,\n    \"use_bf16\": false,\n    \"use_int8\": false\n  }\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/lora/jobs",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"lora",
+														"jobs"
+													]
+												},
+												"description": "Create a new LoRA fine-tuning job.\n\nThe job will be started in the background and can be monitored through the /jobs/{job_id} endpoint."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"name\": \"dolor amet ea do\",\n  \"config\": {\n    \"base_model\": \"exercitation amet labore voluptate sint\",\n    \"adapter_name\": \"consectetur adip\",\n    \"training_data\": [\n      {\n        \"completion\": \"Machine learning is...\",\n        \"prompt\": \"What is machine learning?\"\n      }\n    ],\n    \"lora_r\": 8,\n    \"lora_alpha\": 16,\n    \"lora_dropout\": 0.05,\n    \"batch_size\": 4,\n    \"learning_rate\": 0.0003,\n    \"num_epochs\": 3,\n    \"sequence_length\": 512,\n    \"target_modules\": [\n      \"Excepteur mollit sed ullamco dolore\",\n      \"velit\"\n    ],\n    \"use_fp16\": false,\n    \"use_bf16\": false,\n    \"use_int8\": false\n  }\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/jobs",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"jobs"
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"job_id\": \"aliqua velit\",\n  \"name\": \"elit sit\",\n  \"status\": \"PENDING\",\n  \"progress\": {\n    \"current_step\": 0,\n    \"total_steps\": 0,\n    \"loss\": -63193118.11205335,\n    \"learning_rate\": 85569638.45311087,\n    \"epoch\": 74537606.10807762,\n    \"message\": \"veniam magna esse commodo\"\n  },\n  \"created_at\": \"1976-03-31T05:16:56.435Z\",\n  \"updated_at\": \"1989-06-14T15:34:01.944Z\",\n  \"message\": \"sint exercitation pariat\",\n  \"error\": \"aliqua officia aute id\"\n}"
+												},
+												{
+													"name": "Validation Error",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"name\": \"dolor amet ea do\",\n  \"config\": {\n    \"base_model\": \"exercitation amet labore voluptate sint\",\n    \"adapter_name\": \"consectetur adip\",\n    \"training_data\": [\n      {\n        \"completion\": \"Machine learning is...\",\n        \"prompt\": \"What is machine learning?\"\n      }\n    ],\n    \"lora_r\": 8,\n    \"lora_alpha\": 16,\n    \"lora_dropout\": 0.05,\n    \"batch_size\": 4,\n    \"learning_rate\": 0.0003,\n    \"num_epochs\": 3,\n    \"sequence_length\": 512,\n    \"target_modules\": [\n      \"Excepteur mollit sed ullamco dolore\",\n      \"velit\"\n    ],\n    \"use_fp16\": false,\n    \"use_bf16\": false,\n    \"use_int8\": false\n  }\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/jobs",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"jobs"
+															]
+														}
+													},
+													"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+													"code": 422,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+												}
+											]
+										},
+										{
+											"name": "List Jobs",
+											"request": {
+												"method": "GET",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/lora/jobs?status=ut",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"lora",
+														"jobs"
+													],
+													"query": [
+														{
+															"key": "status",
+															"value": "ut",
+															"description": "Filter by job status"
+														}
+													]
+												},
+												"description": "List all LoRA fine-tuning jobs."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "GET",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/jobs?status=ut",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"jobs"
+															],
+															"query": [
+																{
+																	"key": "status",
+																	"value": "ut",
+																	"description": "Filter by job status"
+																}
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"jobs\": [\n    {\n      \"id\": \"aliqua et d\",\n      \"name\": \"sed exercitation ea\",\n      \"config\": {\n        \"base_model\": \"sed Lorem\",\n        \"adapter_name\": \"consequat dolore ea\",\n        \"training_data\": [\n          {\n            \"completion\": \"Machine learning is...\",\n            \"prompt\": \"What is machine learning?\"\n          }\n        ],\n        \"lora_r\": 8,\n        \"lora_alpha\": 16,\n        \"lora_dropout\": 0.05,\n        \"batch_size\": 4,\n        \"learning_rate\": 0.0003,\n        \"num_epochs\": 3,\n        \"sequence_length\": 512,\n        \"target_modules\": [\n          \"magna\",\n          \"occaecat non id\"\n        ],\n        \"use_fp16\": false,\n        \"use_bf16\": false,\n        \"use_int8\": false\n      },\n      \"status\": \"CANCELED\",\n      \"created_at\": \"1982-03-31T06:27:47.363Z\",\n      \"updated_at\": \"1980-02-12T06:14:28.191Z\",\n      \"progress\": {\n        \"current_step\": 0,\n        \"total_steps\": 0,\n        \"loss\": 96042598.0703798,\n        \"learning_rate\": 66815276.95732701,\n        \"epoch\": 51804717.2553069,\n        \"message\": \"non nulla sit consequat\"\n      },\n      \"error\": \"sit mollit nulla in\"\n    },\n    {\n      \"id\": \"enim\",\n      \"name\": \"tempor magna dolore\",\n      \"config\": {\n        \"base_model\": \"enim\",\n        \"adapter_name\": \"tempor Excepteur dolore\",\n        \"training_data\": [\n          {\n            \"completion\": \"Machine learning is...\",\n            \"prompt\": \"What is machine learning?\"\n          }\n        ],\n        \"lora_r\": 8,\n        \"lora_alpha\": 16,\n        \"lora_dropout\": 0.05,\n        \"batch_size\": 4,\n        \"learning_rate\": 0.0003,\n        \"num_epochs\": 3,\n        \"sequence_length\": 512,\n        \"target_modules\": [\n          \"reprehenderit est\",\n          \"ex non\"\n        ],\n        \"use_fp16\": false,\n        \"use_bf16\": false,\n        \"use_int8\": false\n      },\n      \"status\": \"FAILED\",\n      \"created_at\": \"2010-05-08T22:52:43.839Z\",\n      \"updated_at\": \"1970-11-16T04:33:40.900Z\",\n      \"progress\": {\n        \"current_step\": 0,\n        \"total_steps\": 0,\n        \"loss\": 33182053.118737713,\n        \"learning_rate\": -27272773.83838822,\n        \"epoch\": -51190647.8087286,\n        \"message\": \"sed anim do\"\n      },\n      \"error\": \"adipisicing officia aliqua\"\n    }\n  ],\n  \"total_count\": 14838323\n}"
+												},
+												{
+													"name": "Validation Error",
+													"originalRequest": {
+														"method": "GET",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/jobs?status=ut",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"jobs"
+															],
+															"query": [
+																{
+																	"key": "status",
+																	"value": "ut",
+																	"description": "Filter by job status"
+																}
+															]
+														}
+													},
+													"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+													"code": 422,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "adapters",
+									"item": [
+										{
+											"name": "{adapter_name}",
+											"item": [
+												{
+													"name": "Delete Adapter",
+													"request": {
+														"method": "DELETE",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/adapters/:adapter_name",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"adapters",
+																":adapter_name"
+															],
+															"variable": [
+																{
+																	"key": "adapter_name",
+																	"value": "non Lorem",
+																	"description": "(Required) Name of the LoRA adapter to delete"
+																}
+															]
+														},
+														"description": "Delete a LoRA adapter."
+													},
+													"response": [
+														{
+															"name": "Successful Response",
+															"originalRequest": {
+																"method": "DELETE",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/lora/adapters/:adapter_name",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"lora",
+																		"adapters",
+																		":adapter_name"
+																	],
+																	"variable": [
+																		{
+																			"key": "adapter_name"
+																		}
+																	]
+																}
+															},
+															"status": "OK",
+															"code": 200,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{}"
+														},
+														{
+															"name": "Validation Error",
+															"originalRequest": {
+																"method": "DELETE",
+																"header": [
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/lora/adapters/:adapter_name",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"lora",
+																		"adapters",
+																		":adapter_name"
+																	],
+																	"variable": [
+																		{
+																			"key": "adapter_name"
+																		}
+																	]
+																}
+															},
+															"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+															"code": 422,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+														}
+													]
+												}
+											]
+										},
+										{
+											"name": "List Adapters",
+											"request": {
+												"method": "GET",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/lora/adapters",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"lora",
+														"adapters"
+													]
+												},
+												"description": "List all available LoRA adapters."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "GET",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/adapters",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"adapters"
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "[\n  \"qui occa\",\n  \"mollit consequat in\"\n]"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "generate",
+									"item": [
+										{
+											"name": "Generate Text",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"adapter_name\": \"fugiat labore aliquip\",\n  \"prompt\": \"proident Excepteur nulla cupidatat\",\n  \"max_tokens\": 100,\n  \"temperature\": 0.7,\n  \"top_p\": 0.9,\n  \"top_k\": 50,\n  \"repetition_penalty\": -98243286.00956127,\n  \"stop_sequences\": [\n    \"Ut incididunt\",\n    \"incididunt ex nisi pariatur\"\n  ]\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/lora/generate",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"lora",
+														"generate"
+													]
+												},
+												"description": "Generate text using a fine-tuned model."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"adapter_name\": \"fugiat labore aliquip\",\n  \"prompt\": \"proident Excepteur nulla cupidatat\",\n  \"max_tokens\": 100,\n  \"temperature\": 0.7,\n  \"top_p\": 0.9,\n  \"top_k\": 50,\n  \"repetition_penalty\": -98243286.00956127,\n  \"stop_sequences\": [\n    \"Ut incididunt\",\n    \"incididunt ex nisi pariatur\"\n  ]\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/generate",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"generate"
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"generated_text\": \"est aute anim\",\n  \"adapter_name\": \"sint cupidatat dolor in\",\n  \"generation_time\": 88564918.63637647\n}"
+												},
+												{
+													"name": "Validation Error",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"adapter_name\": \"fugiat labore aliquip\",\n  \"prompt\": \"proident Excepteur nulla cupidatat\",\n  \"max_tokens\": 100,\n  \"temperature\": 0.7,\n  \"top_p\": 0.9,\n  \"top_k\": 50,\n  \"repetition_penalty\": -98243286.00956127,\n  \"stop_sequences\": [\n    \"Ut incididunt\",\n    \"incididunt ex nisi pariatur\"\n  ]\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/lora/generate",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"lora",
+																"generate"
+															]
+														}
+													},
+													"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+													"code": 422,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+												}
+											]
+										}
+									]
+								}
+							]
+						},
+						{
+							"name": "models",
+							"item": [
+								{
+									"name": "health",
+									"item": [
+										{
+											"name": "Health Check",
+											"request": {
+												"method": "GET",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/models/health",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"models",
+														"health"
+													]
+												},
+												"description": "Health check endpoint."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "GET",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/health",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"health"
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "embeddings",
+									"item": [
+										{
+											"name": "Generate Embeddings",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"texts\": [\n    \"ipsum in\",\n    \"fu\"\n  ],\n  \"model_name\": \"sentence-transformers/all-MiniLM-L6-v2\"\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/models/embeddings",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"models",
+														"embeddings"
+													]
+												},
+												"description": "Generate embeddings for the input texts."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"texts\": [\n    \"ipsum in\",\n    \"fu\"\n  ],\n  \"model_name\": \"irure est consectetur\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/embeddings",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"embeddings"
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"embeddings\": [\n    [\n      -1645743.6764105707,\n      -52177377.88354984\n    ],\n    [\n      30173514.364708915,\n      24117910.19136013\n    ]\n  ],\n  \"dimensions\": -74155168,\n  \"model\": \"dolore Excepteur\"\n}"
+												},
+												{
+													"name": "Validation Error",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"texts\": [\n    \"ipsum in\",\n    \"fu\"\n  ],\n  \"model_name\": \"irure est consectetur\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/embeddings",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"embeddings"
+															]
+														}
+													},
+													"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+													"code": 422,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "rerank",
+									"item": [
+										{
+											"name": "Rerank Documents",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"query\": \"proident anim consectetur\",\n  \"texts\": [\n    \"ad tempor\",\n    \"aliqua voluptate cupidatat commodo\"\n  ],\n  \"model_name\": \"cross-encoder/ms-marco-MiniLM-L6-v2\"\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/models/rerank",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"models",
+														"rerank"
+													]
+												},
+												"description": "Rerank texts based on relevance to the query."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"query\": \"proident anim consectetur\",\n  \"texts\": [\n    \"ad tempor\",\n    \"aliqua voluptate cupidatat commodo\"\n  ],\n  \"model_name\": \"fugiat incididunt tempor magna\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/rerank",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"rerank"
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"scores\": [\n    -69192307.14725026,\n    10954416.01155831\n  ],\n  \"model\": \"magna\"\n}"
+												},
+												{
+													"name": "Validation Error",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"query\": \"proident anim consectetur\",\n  \"texts\": [\n    \"ad tempor\",\n    \"aliqua voluptate cupidatat commodo\"\n  ],\n  \"model_name\": \"fugiat incididunt tempor magna\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/rerank",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"rerank"
+															]
+														}
+													},
+													"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+													"code": 422,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "classify",
+									"item": [
+										{
+											"name": "eval",
+											"item": [
+												{
+													"name": "Evaluate Classification",
+													"request": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"texts\": [\n    \"The product exceeded all my expectations. Best purchase ever!\",\n    \"It's okay, works as advertised but nothing special.\",\n    \"Completely disappointed with the quality, would not recommend.\",\n    \"Not bad, but there's room for improvement.\"\n  ],\n  \"labels\": [\n    \"positive\", \"neutral\", \"negative\"\n  ],\n  \"ground_truths\": [\n    \"positive\", \"neutral\", \"negative\", \"neutral\"\n  ],\n  \"model_name\": \"cross-encoder/ms-marco-MiniLM-L6-v2\"\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/classify/eval",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"classify",
+																"eval"
+															]
+														},
+														"description": "Evaluate classification performance by comparing predictions against ground truth labels.\n\nUses a cross-encoder to classify texts and computes evaluation metrics including:\naccuracy, precision, recall, F1 score, and confusion matrix."
+													},
+													"response": [
+														{
+															"name": "Successful Response",
+															"originalRequest": {
+																"method": "POST",
+																"header": [
+																	{
+																		"key": "Content-Type",
+																		"value": "application/json"
+																	},
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"body": {
+																	"mode": "raw",
+																	"raw": "{\n  \"texts\": [\n    \"dolore ipsum sint\",\n    \"magna\"\n  ],\n  \"labels\": [\n    \"veniam dolore magna\",\n    \"ut\"\n  ],\n  \"ground_truths\": [\n    \"veniam mollit minim\",\n    \"cillum eu veniam voluptate\"\n  ],\n  \"model_name\": \"qui nulla magna velit Excepteur\"\n}",
+																	"options": {
+																		"raw": {
+																			"headerFamily": "json",
+																			"language": "json"
+																		}
+																	}
+																},
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/models/classify/eval",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"models",
+																		"classify",
+																		"eval"
+																	]
+																}
+															},
+															"status": "OK",
+															"code": 200,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"metrics\": {\n    \"accuracy\": 63520620.416852534,\n    \"precision\": {\n      \"dolore_a\": 74259908.13899702,\n      \"ex_a71\": 51074113.30000922\n    },\n    \"recall\": {\n      \"estec\": -73889249.87226102\n    },\n    \"f1_score\": {\n      \"proident_c6\": 46028814.57755208,\n      \"in1\": 57985360.164793044\n    },\n    \"label_count\": {\n      \"nulla_a2b\": -52005661,\n      \"ea_aa\": 23718778,\n      \"voluptatee_\": -59051177\n    },\n    \"confusion_matrix\": {\n      \"nostrud_09d\": {\n        \"esseb25\": -85450856,\n        \"eu_e14\": -62149145,\n        \"est1\": -42637985\n      }\n    }\n  },\n  \"predictions\": [\n    {\n      \"non6\": \"dolor ut laborum\",\n      \"minim_2b\": 29882928.929025397,\n      \"nisi_24\": -20499177,\n      \"ex_7\": \"ad non nostrud voluptate\"\n    },\n    {\n      \"quib67\": -96313973.38896517,\n      \"incididunt_1\": -69275203,\n      \"velitbe6\": -46114387\n    }\n  ],\n  \"model\": \"laborum deserunt nisi culpa\"\n}"
+														},
+														{
+															"name": "Validation Error",
+															"originalRequest": {
+																"method": "POST",
+																"header": [
+																	{
+																		"key": "Content-Type",
+																		"value": "application/json"
+																	},
+																	{
+																		"key": "Accept",
+																		"value": "application/json"
+																	}
+																],
+																"body": {
+																	"mode": "raw",
+																	"raw": "{\n  \"texts\": [\n    \"dolore ipsum sint\",\n    \"magna\"\n  ],\n  \"labels\": [\n    \"veniam dolore magna\",\n    \"ut\"\n  ],\n  \"ground_truths\": [\n    \"veniam mollit minim\",\n    \"cillum eu veniam voluptate\"\n  ],\n  \"model_name\": \"qui nulla magna velit Excepteur\"\n}",
+																	"options": {
+																		"raw": {
+																			"headerFamily": "json",
+																			"language": "json"
+																		}
+																	}
+																},
+																"url": {
+																	"raw": "{{baseUrl}}/api/v1/models/classify/eval",
+																	"host": [
+																		"{{baseUrl}}"
+																	],
+																	"path": [
+																		"api",
+																		"v1",
+																		"models",
+																		"classify",
+																		"eval"
+																	]
+																}
+															},
+															"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+															"code": 422,
+															"_postman_previewlanguage": "json",
+															"header": [
+																{
+																	"key": "Content-Type",
+																	"value": "application/json"
+																}
+															],
+															"cookie": [],
+															"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+														}
+													]
+												}
+											]
+										},
+										{
+											"name": "Classify Text",
+											"request": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													},
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n    \"texts\": [\n        \"The team won the championship after a thrilling game.\",\n        \"New legislation was passed regarding tax reforms.\",\n        \"The company released their latest smartphone with advanced AI features.\",\n        \"The movie received critical acclaim for its stunning visual effects.\"\n    ],\n    \"labels\": [\"sports\", \"politics\", \"technology\", \"entertainment\", \"business\"],\n    \"model_name\": \"cross-encoder/ms-marco-MiniLM-L6-v2\",\n    \"include_results\": false\n}",
+													"options": {
+														"raw": {
+															"headerFamily": "json",
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/models/classify",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"models",
+														"classify"
+													]
+												},
+												"description": "Classify texts into one of the provided labels.\n\nUses a cross-encoder to score each (label, text) pair and returns sorted results.\nProcesses multiple texts and returns results for each text."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"texts\": [\n    \"labore\",\n    \"laborum Excepteur\"\n  ],\n  \"labels\": [\n    \"eiusmod Lorem\",\n    \"ut sed\"\n  ],\n  \"model_name\": \"est\",\n  \"include_results\": true\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/classify",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"classify"
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"text_results\": [\n    {\n      \"top_label\": \"consequat ad proident est\",\n      \"top_score\": -87785229.71518807,\n      \"results\": [\n        {\n          \"label\": \"ea aliqua dolor\",\n          \"score\": -38674991.644805305\n        },\n        {\n          \"label\": \"amet elit in adipisicing ut\",\n          \"score\": 15845127.033505782\n        }\n      ]\n    },\n    {\n      \"top_label\": \"laboris proident\",\n      \"top_score\": 6241834.686718121,\n      \"results\": [\n        {\n          \"label\": \"quis sint ex pariatur\",\n          \"score\": -40470995.22704558\n        },\n        {\n          \"label\": \"eu anim\",\n          \"score\": -13496627.73157774\n        }\n      ]\n    }\n  ],\n  \"model\": \"fugiat do id\"\n}"
+												},
+												{
+													"name": "Validation Error",
+													"originalRequest": {
+														"method": "POST",
+														"header": [
+															{
+																"key": "Content-Type",
+																"value": "application/json"
+															},
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"body": {
+															"mode": "raw",
+															"raw": "{\n  \"texts\": [\n    \"labore\",\n    \"laborum Excepteur\"\n  ],\n  \"labels\": [\n    \"eiusmod Lorem\",\n    \"ut sed\"\n  ],\n  \"model_name\": \"est\",\n  \"include_results\": true\n}",
+															"options": {
+																"raw": {
+																	"headerFamily": "json",
+																	"language": "json"
+																}
+															}
+														},
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/classify",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"classify"
+															]
+														}
+													},
+													"status": "Unprocessable Entity (WebDAV) (RFC 4918)",
+													"code": 422,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{\n  \"detail\": [\n    {\n      \"loc\": [\n        \"aliquip laboris id\",\n        \"aliquip\"\n      ],\n      \"msg\": \"non occaecat aliqua minim\",\n      \"type\": \"esse commodo\"\n    },\n    {\n      \"loc\": [\n        \"labore\",\n        \"qui occaecat\"\n      ],\n      \"msg\": \"dolor n\",\n      \"type\": \"amet reprehenderit occaecat ea sit\"\n    }\n  ]\n}"
+												}
+											]
+										}
+									]
+								},
+								{
+									"name": "models",
+									"item": [
+										{
+											"name": "List Models",
+											"request": {
+												"method": "GET",
+												"header": [
+													{
+														"key": "Accept",
+														"value": "application/json"
+													}
+												],
+												"url": {
+													"raw": "{{baseUrl}}/api/v1/models/models",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"models",
+														"models"
+													]
+												},
+												"description": "List available models in the models directory."
+											},
+											"response": [
+												{
+													"name": "Successful Response",
+													"originalRequest": {
+														"method": "GET",
+														"header": [
+															{
+																"key": "Accept",
+																"value": "application/json"
+															}
+														],
+														"url": {
+															"raw": "{{baseUrl}}/api/v1/models/models",
+															"host": [
+																"{{baseUrl}}"
+															],
+															"path": [
+																"api",
+																"v1",
+																"models",
+																"models"
+															]
+														}
+													},
+													"status": "OK",
+													"code": 200,
+													"_postman_previewlanguage": "json",
+													"header": [
+														{
+															"key": "Content-Type",
+															"value": "application/json"
+														}
+													],
+													"cookie": [],
+													"body": "{}"
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "/",
+			"item": [
+				{
+					"name": "Root",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								""
+							]
+						},
+						"description": "Root endpoint with API information."
+					},
+					"response": [
+						{
+							"name": "Successful Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										""
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{}"
+						}
+					]
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "/"
+		}
+	]
+}
