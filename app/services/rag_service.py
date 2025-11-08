@@ -334,6 +334,25 @@ class RAGService:
     """
         start_time = time.time()
         
+        # Debug logging for query parameters
+        logger.debug("="*80)
+        logger.debug("RAG SERVICE QUERY")
+        logger.debug("="*80)
+        logger.debug(f"Query: '{query}'")
+        logger.debug(f"Configuration: {configuration_name}")
+        logger.debug(f"K: {k}")
+        logger.debug(f"Similarity Threshold: {similarity_threshold}")
+        logger.debug(f"Filter: {filter}")
+        logger.debug(f"Filter After Reranking: {filter_after_reranking}")
+        logger.debug(f"Has Context Items: {context_items is not None and len(context_items) > 0 if context_items else False}")
+        logger.debug(f"Has Config Override: {config_override is not None}")
+        logger.debug(f"Query Expansion Enabled: {query_expansion is not None and query_expansion.get('enabled', True)}")
+        if query_expansion:
+            logger.debug(f"Query Expansion Strategy: {query_expansion.get('strategy', 'N/A')}")
+            logger.debug(f"Query Expansion LLM Config: {query_expansion.get('llm_config_name', 'N/A')}")
+            logger.debug(f"Query Expansion Num Queries: {query_expansion.get('num_queries', 'N/A')}")
+        logger.debug("="*80)
+        
         try:
             # Get configuration, use override if provided
             config = config_override if config_override else self.get_configuration(configuration_name)
@@ -362,84 +381,22 @@ class RAGService:
             k = k or config.retrieval_k
             similarity_threshold = similarity_threshold or config.similarity_threshold
             
-            # Handle query expansion if requested
-            queries_to_search = [query]  # Always include original query
-            expansion_metadata = None
-            if query_expansion and query_expansion.get('enabled', True):
-                try:
-                    llm_config_name = query_expansion.get('llm_config_name')
-                    if llm_config_name:
-                        llm_config = self.get_llm_configuration(llm_config_name)
-                        strategy = query_expansion.get('strategy', 'fusion')
-                        num_queries = query_expansion.get('num_queries', 3)
-                        include_metadata = query_expansion.get('include_metadata', False)
-                        
-                        if include_metadata:
-                            expanded_queries, expansion_metadata = await self.query_expansion_service.expand_query_with_metadata(
-                                query, llm_config, strategy, num_queries
-                            )
-                        else:
-                            expanded_queries = await self.query_expansion_service.expand_query(
-                                query, llm_config, strategy, num_queries
-                            )
-                        
-                        queries_to_search = expanded_queries
-                        logger.info(f"Using {len(queries_to_search)} queries for retrieval (including original)")
-                except Exception as e:
-                    logger.error(f"Query expansion failed: {str(e)}. Using original query only.")
-                    queries_to_search = [query]
+            # Use the common retrieve() method to get documents
+            # Increase k for reranking if needed
+            retrieval_k = k if not reranker_service.config.enabled else max(k, reranker_service.config.top_n)
             
-            # Retrieve relevant documents using all queries
-            all_results = []
+            logger.debug(f"Calling retrieve() with k={retrieval_k}")
+            context_docs, expansion_metadata = await self.retrieve(
+                query=query,
+                configuration_name=configuration_name,
+                k=retrieval_k,
+                similarity_threshold=similarity_threshold,
+                query_expansion=query_expansion,
+                filter_after_reranking=False,  # We'll apply reranking in query() after retrieval
+                filter=filter
+            )
             
-            # Pass the freshly created embedding service to override the one in the vector store
-            if hasattr(vector_store, 'embedding_service'):
-                # Store the original embedding service
-                original_embedding_service = vector_store.embedding_service
-                # Temporarily replace with our current embedding service
-                vector_store.embedding_service = embedding_service
-            
-            for q in queries_to_search:
-                results = vector_store.similarity_search(
-                    q,
-                    k=k if not reranker_service.config.enabled else max(k, reranker_service.config.top_n),
-                    similarity_threshold=similarity_threshold,
-                    filter=filter
-                )
-                
-                # Add query source information to results
-                query_results = [(doc, score, q) for doc, score in results]
-                all_results.append(query_results)
-            
-            # Restore the original embedding service if we changed it
-            if hasattr(vector_store, 'embedding_service') and 'original_embedding_service' in locals():
-                vector_store.embedding_service = original_embedding_service
-            
-            # Merge and deduplicate results if multiple queries were used
-            if len(queries_to_search) > 1:
-                merged_results = self._merge_query_results(all_results, k * 2)  # Get more for reranking
-            else:
-                merged_results = all_results[0] if all_results else []
-            
-            # Prepare context documents
-            context_docs = []
-            for item in merged_results:
-                if len(item) == 3:  # (doc, score, query)
-                    doc, score, source_query = item
-                    context_docs.append({
-                        'content': doc.page_content,
-                        'metadata': doc.metadata,
-                        'similarity_score': score,
-                        'source_query': source_query if len(queries_to_search) > 1 else None
-                    })
-                else:  # (doc, score)
-                    doc, score = item
-                    context_docs.append({
-                        'content': doc.page_content,
-                        'metadata': doc.metadata,
-                        'similarity_score': score,
-                        'source_query': None
-                    })
+            logger.debug(f"QUERY: Retrieved {len(context_docs)} documents from retrieve()")
             
             # Apply reranking if enabled
             if reranker_service.config.enabled and context_docs:
@@ -465,37 +422,7 @@ class RAGService:
             
             processing_time = time.time() - start_time
             
-            # Enhance expansion metadata with query results summary if metadata was requested
-            if expansion_metadata and len(queries_to_search) > 1:
-                # Create query results summary by analyzing the raw results before merging
-                query_results_summary = []
-                
-                for i, q in enumerate(queries_to_search):
-                    # Get raw results for this specific query from all_results
-                    query_raw_results = all_results[i] if i < len(all_results) else []
-                    
-                    # Count results from this query and get top score
-                    results_count = len(query_raw_results)
-                    top_score = 0.0
-                    
-                    if query_raw_results:
-                        # Extract scores from the raw results
-                        if len(query_raw_results[0]) == 3:  # (doc, score, query)
-                            scores = [item[1] for item in query_raw_results]
-                        else:  # (doc, score)
-                            scores = [item[1] for item in query_raw_results]
-                        top_score = max(scores) if scores else 0.0
-                    
-                    query_results_summary.append({
-                        "query": q,
-                        "is_original": q == query,
-                        "results_count": results_count,
-                        "top_similarity_score": top_score
-                    })
-                
-                expansion_metadata["query_results_summary"] = query_results_summary
-                expansion_metadata["total_unique_results"] = len(context_docs)
-                expansion_metadata["total_raw_results"] = sum(len(results) for results in all_results)
+            # Note: expansion_metadata is already populated by retrieve() if query expansion was used
             
             response = QueryResponse(
                 query=query,
@@ -810,6 +737,23 @@ class RAGService:
             Tuple of (documents list, expansion metadata dict or None)
         """
         try:
+            # Debug logging for retrieve parameters
+            logger.debug("="*80)
+            logger.debug("RAG SERVICE RETRIEVE")
+            logger.debug("="*80)
+            logger.debug(f"Query: '{query}'")
+            logger.debug(f"Configuration: {configuration_name}")
+            logger.debug(f"K: {k}")
+            logger.debug(f"Similarity Threshold: {similarity_threshold}")
+            logger.debug(f"Filter: {filter}")
+            logger.debug(f"Filter After Reranking: {filter_after_reranking}")
+            logger.debug(f"Query Expansion Enabled: {query_expansion is not None and query_expansion.get('enabled', True)}")
+            if query_expansion:
+                logger.debug(f"Query Expansion Strategy: {query_expansion.get('strategy', 'N/A')}")
+                logger.debug(f"Query Expansion LLM Config: {query_expansion.get('llm_config_name', 'N/A')}")
+                logger.debug(f"Query Expansion Num Queries: {query_expansion.get('num_queries', 'N/A')}")
+            logger.debug("="*80)
+            
             # Get configuration and services
             config = self.get_configuration(configuration_name)
             vector_store = self._get_vector_store(configuration_name)
@@ -894,6 +838,15 @@ class RAGService:
                         'similarity_score': score,
                         'source_query': None
                     })
+            
+            # Debug logging for final results
+            logger.debug(f"RETRIEVE RESULTS: Found {len(documents)} documents")
+            if documents:
+                logger.debug(f"Top 3 document scores: {[doc['similarity_score'] for doc in documents[:3]]}")
+                logger.debug(f"Top document content preview: {documents[0]['content'][:100]}...")
+            else:
+                logger.debug("No documents retrieved!")
+            logger.debug("="*80)
             
             # Enhance expansion metadata with query results summary if metadata was requested
             if expansion_metadata and len(queries_to_search) > 1:

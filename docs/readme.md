@@ -4,6 +4,7 @@ A comprehensive Retrieval-Augmented Generation (RAG) platform built with FastAPI
 
 ## Features
 
+- **OpenAI-Compatible API**: Drop-in replacement for OpenAI's chat completions API with RAG integration (see `docs/OPENAI_CHAT_COMPLETIONS.md`)
 - **Configurable RAG Pipeline**: Choose from multiple chunking strategies, embedding models, and generation models
 - **Multiple Vector Store Options**:
   - **FAISS**: High-performance similarity search with FAISS

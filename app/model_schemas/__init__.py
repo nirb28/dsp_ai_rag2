@@ -24,3 +24,9 @@ from .lora_models import (
     LoRATrainingConfig, LoRAGenerationRequest, LoRAGenerationResponse,
     LoRAJobResponse, LoRAJobListResponse
 )
+
+from .openai_models import (
+    ChatMessage, ChatCompletionRequest, ChatCompletionResponse,
+    ChatCompletionChoice, ChatCompletionChunk, UsageInfo,
+    ErrorDetail, ErrorResponse as OpenAIErrorResponse
+)

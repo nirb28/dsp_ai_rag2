@@ -4,6 +4,9 @@
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
+    <envs>
+      <env name="PYTHONUNBUFFERED" value="1" />
+    </envs>
     <option name="SDK_HOME" value="" />
     <option name="SDK_NAME" value="Python 3.13 virtualenv at D:\ds\work\workspace\git\dsp_ai_rag2\.venv" />
     <option name="WORKING_DIRECTORY" value="" />
@@ -12,7 +15,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="app.main" />
-    <option name="PARAMETERS" value="HTTP_PROXY=http://127.0.0.1:8281;http_proxy=http://127.0.0.1:8281;HTTPS_PROXY=http://127.0.0.1:8281;https_proxy=http://127.0.0.1:8281" />
+    <option name="PARAMETERS" value="" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="true" />

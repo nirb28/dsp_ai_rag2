@@ -24,6 +24,7 @@ from app.model_schemas.base_models import (
     ConfigurationRequest,
     ConfigurationResponse,
     ConfigurationsResponse,
+    ConfigurationInfo,
     DuplicateConfigurationRequest,
     DuplicateConfigurationResponse,
     TextDocumentsUploadRequest,
@@ -725,6 +726,26 @@ async def retrieve_documents(
     try:
         start_time = time.time()
         
+        # Debug logging for retrieve request
+        if request.debug:
+            logger.debug("="*80)
+            logger.debug("RETRIEVE REQUEST DEBUG")
+            logger.debug("="*80)
+            logger.debug(f"Query: {request.query}")
+            logger.debug(f"Configuration Name: {request.configuration_name}")
+            logger.debug(f"Configuration Names (multi): {request.configuration_names}")
+            logger.debug(f"K: {request.k}")
+            logger.debug(f"Similarity Threshold: {request.similarity_threshold}")
+            logger.debug(f"Filter: {request.filter}")
+            logger.debug(f"Filter After Reranking: {request.filter_after_reranking}")
+            logger.debug(f"Use Reranking: {request.use_reranking}")
+            logger.debug(f"Fusion Method: {request.fusion_method}")
+            logger.debug(f"Include Metadata: {request.include_metadata}")
+            logger.debug(f"Include Vectors: {request.include_vectors}")
+            logger.debug(f"Query Expansion: {request.query_expansion}")
+            logger.debug(f"Config Overrides: {request.config}")
+            logger.debug("="*80)
+        
         # Determine configuration names for security validation
         config_names = []
         if request.configuration_names and len(request.configuration_names) > 0:
@@ -809,7 +830,7 @@ async def retrieve_documents(
             
             # Get query parameters
             k = request.k
-            similarity_threshold = request.similarity_threshold if request.similarity_threshold is not None else config.retrieval.similarity_threshold
+            similarity_threshold = request.similarity_threshold if request.similarity_threshold is not None else config.similarity_threshold
             
             # Use the new retrieve method with query expansion support
             config_documents, config_expansion_metadata = await rag_service.retrieve(

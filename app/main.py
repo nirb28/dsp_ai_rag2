@@ -15,7 +15,10 @@ import uvicorn
 from fastapi.encoders import jsonable_encoder
 
 from app.api.endpoints import router
+from app.api.openai_endpoints import get_all_openai_routers
+from app.api.unified_openai_endpoints import create_unified_openai_router
 from app.model_schemas import ErrorResponse
+from app.services.rag_service import RAGService
 
 from dotenv import load_dotenv
 import os
@@ -59,6 +62,21 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router, prefix="/api/v1", tags=["RAG Service"])
+
+# Initialize RAG service and register OpenAI-compatible routers for all configurations
+rag_service_instance = RAGService()
+
+# Register unified OpenAI endpoint (/v1/chat/completions with model parameter)
+unified_router = create_unified_openai_router(rag_service_instance)
+app.include_router(unified_router)
+logger.info("Registered unified OpenAI-compatible endpoint: /v1/chat/completions")
+
+# Register per-configuration OpenAI endpoints (/{config}/v1/chat/completions)
+openai_routers = get_all_openai_routers(rag_service_instance)
+for openai_router in openai_routers:
+    app.include_router(openai_router, tags=["OpenAI Compatible (Per-Config)"])
+    
+logger.info(f"Registered {len(openai_routers)} per-configuration OpenAI-compatible endpoints")
 
 class CustomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder that handles datetime objects."""
@@ -104,11 +122,27 @@ async def general_exception_handler(request, exc):
 @app.get("/")
 async def root():
     """Root endpoint with API information."""
+    # Get available configurations for OpenAI endpoints
+    config_names = rag_service_instance.get_configuration_names()
+    per_config_endpoints = {
+        config_name: f"/{config_name}/v1/chat/completions"
+        for config_name in config_names
+    }
+    
     return {
         "message": "RAG as a Service API",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/api/v1/health",
+        "openai_compatible_endpoints": {
+            "unified": {
+                "chat_completions": "/v1/chat/completions",
+                "models": "/v1/models",
+                "description": "Use 'model' parameter to specify configuration"
+            },
+            "per_configuration": per_config_endpoints
+        },
+        "available_models": config_names,
         "documentation": {
             "chunking_strategies": "/api/v1/documentation/chunking-strategies",
             "embedding_models": "/api/v1/documentation/embedding-models",
@@ -123,6 +157,6 @@ if __name__ == "__main__":
         "app.main:app",
         host="0.0.0.0",
         port=9000,
-        reload=True,
+        reload=False,
         log_level="debug"
     )
