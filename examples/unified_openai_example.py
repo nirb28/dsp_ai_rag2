@@ -176,51 +176,35 @@ def example_4_streaming():
                     pass
 
 
-def example_5_comparison():
-    """Example 5: Compare unified vs per-config endpoints."""
+def example_5_multiple_models():
+    """Example 5: Using multiple models with the same endpoint."""
     print("\n" + "="*80)
-    print("Example 5: Unified vs Per-Configuration Endpoints")
+    print("Example 5: Switching Between Models")
     print("="*80)
     
-    model_name = "batch_rl-docs_test"
+    url = f"{BASE_URL}/v1/chat/completions"
     
-    # Unified endpoint
-    print("\n1. Unified Endpoint Approach:")
-    print(f"   URL: {BASE_URL}/v1/chat/completions")
-    print(f"   Specify model in request body: \"model\": \"{model_name}\"")
+    models = ["batch_rl-docs_test", "default"]
     
-    unified_url = f"{BASE_URL}/v1/chat/completions"
-    unified_payload = {
-        "model": model_name,
-        "messages": [{"role": "user", "content": "What is Q-learning?"}]
-    }
+    print(f"\nUsing the same endpoint: {url}")
+    print("Switching models by changing the 'model' parameter\n")
     
-    response1 = requests.post(unified_url, json=unified_payload)
-    response1.raise_for_status()
-    result1 = response1.json()
-    
-    print(f"   Response: {result1['choices'][0]['message']['content'][:100]}...")
-    
-    # Per-configuration endpoint
-    print(f"\n2. Per-Configuration Endpoint Approach:")
-    print(f"   URL: {BASE_URL}/{model_name}/v1/chat/completions")
-    print(f"   Configuration is in the URL path")
-    
-    per_config_url = f"{BASE_URL}/{model_name}/v1/chat/completions"
-    per_config_payload = {
-        "model": model_name,  # Can still include model parameter
-        "messages": [{"role": "user", "content": "What is Q-learning?"}]
-    }
-    
-    response2 = requests.post(per_config_url, json=per_config_payload)
-    response2.raise_for_status()
-    result2 = response2.json()
-    
-    print(f"   Response: {result2['choices'][0]['message']['content'][:100]}...")
-    
-    print("\nBoth approaches work! Choose based on your preference:")
-    print("  - Unified: Single endpoint, model parameter (like OpenAI/LiteLLM)")
-    print("  - Per-Config: Separate endpoints per configuration (isolation)")
+    for model_name in models:
+        print(f"Model: {model_name}")
+        payload = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": "What is machine learning?"}],
+            "k": 3
+        }
+        
+        try:
+            response = requests.post(url, json=payload)
+            response.raise_for_status()
+            result = response.json()
+            print(f"  Response: {result['choices'][0]['message']['content'][:100]}...")
+        except Exception as e:
+            print(f"  Error: {str(e)}")
+        print()
 
 
 def example_6_langchain_integration():
@@ -260,9 +244,9 @@ def check_service():
         print("RAG Service Information")
         print("="*80)
         print(f"Version: {data.get('version', 'N/A')}")
-        print(f"\nUnified Endpoint:")
-        print(f"  Chat Completions: {data['openai_compatible_endpoints']['unified']['chat_completions']}")
-        print(f"  Models List: {data['openai_compatible_endpoints']['unified']['models']}")
+        print(f"\nOpenAI-Compatible Endpoints:")
+        print(f"  Chat Completions: {data['openai_compatible_endpoints']['chat_completions']}")
+        print(f"  Models List: {data['openai_compatible_endpoints']['models']}")
         print(f"\nAvailable Models: {', '.join(data.get('available_models', []))}")
         
         return True
@@ -288,7 +272,7 @@ def main():
         example_2_list_models()
         example_3_openai_library()
         example_4_streaming()
-        example_5_comparison()
+        example_5_multiple_models()
         example_6_langchain_integration()
         
         print("\n" + "="*80)

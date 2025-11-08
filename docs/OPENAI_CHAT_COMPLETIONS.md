@@ -4,11 +4,7 @@ The RAG system now provides OpenAI-compatible chat completions endpoints for eac
 
 ## Overview
 
-The RAG system provides two ways to access OpenAI-compatible chat completions:
-
-### 1. Unified Endpoint (Recommended)
-
-A single endpoint where the `model` parameter specifies the configuration:
+The RAG system provides a unified OpenAI-compatible endpoint where the `model` parameter specifies which RAG configuration to use:
 
 ```
 /v1/chat/completions
@@ -23,27 +19,7 @@ POST http://localhost:9000/v1/chat/completions
 }
 ```
 
-This approach is similar to LiteLLM and the standard OpenAI API.
-
-### 2. Per-Configuration Endpoints
-
-Each RAG configuration has its own dedicated endpoint:
-
-```
-/{configuration_name}/v1/chat/completions
-```
-
-**Example:**
-```bash
-POST http://localhost:9000/malts_faq/v1/chat/completions
-{
-  "model": "malts_faq",
-  "messages": [...]
-}
-```
-
-Both approaches work identically. Use the unified endpoint for simpler integration,
-or per-configuration endpoints for better isolation.
+This approach is similar to LiteLLM and the standard OpenAI API, allowing you to use the same endpoint for all configurations and switch between them by changing the `model` parameter.
 
 ## Features
 
@@ -175,9 +151,9 @@ List all available models (RAG configurations) across the entire system.
 
 ### Retrieve Model
 
-**GET** `/{configuration_name}/v1/models/{model_id}`
+**GET** `/v1/models/{model_id}`
 
-Get information about a specific model.
+Get information about a specific model (RAG configuration).
 
 ## Usage Examples
 
