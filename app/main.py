@@ -59,11 +59,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize RAG service (single shared instance)
+rag_service_instance = RAGService()
+
+# Set the shared instance in endpoints module so all endpoints use the same instance
+import app.api.endpoints as endpoints_module
+endpoints_module.rag_service = rag_service_instance
+
 # Include API routes
 app.include_router(router, prefix="/api/v1", tags=["RAG Service"])
-
-# Initialize RAG service and register unified OpenAI-compatible endpoint
-rag_service_instance = RAGService()
 
 # Register unified OpenAI endpoint (/v1/chat/completions with model parameter)
 unified_router = create_unified_openai_router(rag_service_instance)

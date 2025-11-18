@@ -93,8 +93,8 @@ router = APIRouter()
 # Include documentation router
 router.include_router(documentation_router, prefix="/documentation")
 
-# Global RAG service instance
-rag_service = RAGService()
+# Global RAG service instance - will be set by main.py
+rag_service = None
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
